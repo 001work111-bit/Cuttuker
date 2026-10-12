@@ -1,0 +1,25 @@
+{
+  "id": "claud1-balanced",
+  "name": "Сбалансированная композиция · Claude 1",
+  "version": "1.0.0",
+  "description": "Высота блока пропорциональна его «весу», остаток — в рассчитанные равные интервалы. [Claude 1]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 101,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

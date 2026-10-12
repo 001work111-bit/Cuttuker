@@ -1,0 +1,555 @@
+{
+  "protocol": "recompose-selection/v1",
+  "generatedAt": "2026-10-12T04:18:50.114Z",
+  "app": "Recompose Studio — all-in-one 9:16 lab (interface/index.html)",
+  "sourceRepository": "https://github.com/001work111-bit/Cuttuker",
+  "instructionsForAI": "Это экспорт выбора пользователя из единой лаборатории вертикальной адаптации HTML 16:9→9:16. В массиве \"favorites\" — методы, отобранные пользователем звёздочкой (именно то, что он выбрал). В \"excluded\" — методы, деактивированные пользователем (не предлагать и не использовать). Поле value — идентификатор «семья.метод»; sourceFile — оригинальная программа-источник в репозитории; locator — где искать код метода в собранном interface/index.html (блоки fam_*.js идентичны <script>-блокам внутри index.html).",
+  "context": {
+    "totalMethods": 40,
+    "favOnlyMode": true,
+    "currentMethod": "claud1.typographic",
+    "currentTemplate": {
+      "index": 3,
+      "id": "swissTypographicMatrix_2",
+      "label": "Швейцарская модульная матрица концепта"
+    }
+  },
+  "favorites": [
+    {
+      "value": "claud1.balanced",
+      "methodId": "balanced",
+      "title": "Сбалансированная композиция",
+      "description": "Высота блока пропорциональна его «весу», остаток — в рассчитанные равные интервалы. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodBalanced()"
+    },
+    {
+      "value": "claud1.editorial",
+      "methodId": "editorial",
+      "title": "Вертикальная редакционная композиция",
+      "description": "Flex-grow растягивает группы на всю высоту 1600px вместо скопления наверху. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodEditorial()"
+    },
+    {
+      "value": "claud1.typographic",
+      "methodId": "typographic",
+      "title": "Типографическая вертикальная композиция",
+      "description": "Заголовок резко увеличен и держит композицию, медиа — маленький акцент в углу. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodTypographic()"
+    },
+    {
+      "value": "gemini.balanced",
+      "methodId": "balanced",
+      "title": "Сбалансированная композиция",
+      "description": "Равномерное распределение визуального веса и адаптивные интервалы по золотому сечению.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"balanced\"] → applyNewMethodRules"
+    },
+    {
+      "value": "gemini.editorial",
+      "methodId": "editorial",
+      "title": "Вертикальная редакционная композиция",
+      "description": "Делит кадр на трёхчастную иерархию: вводка → ядро с медиа → заземлённый футер, без пустоты снизу.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"editorial\"] → applyNewMethodRules"
+    },
+    {
+      "value": "gemini.heroMedia",
+      "methodId": "heroMedia",
+      "title": "Композиция с главным медиа",
+      "description": "Доминирующее медиа вертикального масштаба (4:5 / 1:1) с выверенной типографикой вокруг.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"heroMedia\"] → applyNewMethodRules"
+    },
+    {
+      "value": "gemini.mediaGrid",
+      "methodId": "mediaGrid",
+      "title": "Вертикальная медиасетка",
+      "description": "Последовательность крупных кадров и асимметричная вертикальная раскладка для шаблонов с 2+ медиа.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"mediaGrid\"] → applyNewMethodRules"
+    },
+    {
+      "value": "gemini.typographic",
+      "methodId": "typographic",
+      "title": "Типографический вертикальный плакат",
+      "description": "Монументальная швейцарская типографика, ритмичные манифесты и структурированные списки.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"typographic\"] → applyNewMethodRules"
+    },
+    {
+      "value": "grok.balanced",
+      "methodId": "balanced",
+      "title": "Сбалансированная",
+      "description": "CSS grid с 1fr-рядом под медиа, низ кадра занят метой; пустота входит в ритм. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"balanced\",t) → METHODS"
+    },
+    {
+      "value": "grok.editorial",
+      "methodId": "editorial",
+      "title": "Вертикальная редакционная",
+      "description": "Роли распределены по высоте 1600px через space-between; мета закреплена внизу. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"editorial\",t) → METHODS"
+    },
+    {
+      "value": "grok.hero",
+      "methodId": "hero",
+      "title": "Главное медиа",
+      "description": "Первое медиа занимает основную высоту кадра, текст — обвязка сверху и снизу. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"hero\",t) → METHODS"
+    },
+    {
+      "value": "iface.smart",
+      "methodId": "smart",
+      "title": "Реконструкция по ролям",
+      "description": "Перекомпоновывает заголовки, медиа и метаданные под вертикальный кадр 9:16.",
+      "family": {
+        "key": "iface",
+        "label": "Базовая лаборатория",
+        "badge": "ИСХОДНАЯ"
+      },
+      "sourceFile": "Interface/recompose-studio-9x16.html",
+      "locator": "index.html · script-блок 0 «эталонная лаборатория» · buildConverted(html,t,\"smart\") + smartStructure/targetCss"
+    },
+    {
+      "value": "iface.split",
+      "methodId": "split",
+      "title": "Редакционный split",
+      "description": "При наличии текста и медиа делает явную двухколоночную композицию.",
+      "family": {
+        "key": "iface",
+        "label": "Базовая лаборатория",
+        "badge": "ИСХОДНАЯ"
+      },
+      "sourceFile": "Interface/recompose-studio-9x16.html",
+      "locator": "index.html · script-блок 0 «эталонная лаборатория» · buildConverted(html,t,\"split\") + smartStructure/targetCss"
+    },
+    {
+      "value": "v3011.hero",
+      "methodId": "hero",
+      "title": "Главное медиа",
+      "description": "Выводит один ведущий кадр в центральную часть портрета, оставляя тексту вход и подписи.",
+      "family": {
+        "key": "v3011",
+        "label": "Single-file v3-011",
+        "badge": "V3-011"
+      },
+      "sourceFile": "recompose-studio-9x16_v 3-011.html",
+      "locator": "index.html · script-блок «fam_v3011» (Single-file v3-011) · EXPERIMENTAL_METHODS → experimentalStructure/experimentalCss (id=\"hero\")"
+    },
+    {
+      "value": "v3011.type",
+      "methodId": "type",
+      "title": "Типографический постер",
+      "description": "Центрирует заявление и управляет свободным полем, не превращая текстовый шаблон в узкую колонку.",
+      "family": {
+        "key": "v3011",
+        "label": "Single-file v3-011",
+        "badge": "V3-011"
+      },
+      "sourceFile": "recompose-studio-9x16_v 3-011.html",
+      "locator": "index.html · script-блок «fam_v3011» (Single-file v3-011) · EXPERIMENTAL_METHODS → experimentalStructure/experimentalCss (id=\"type\")"
+    }
+  ],
+  "excluded": [
+    {
+      "value": "claud1.compact",
+      "methodId": "compact",
+      "title": "Адаптивная сетка",
+      "description": "Сворачивает многоколоночные grid в одну колонку, уплотняет отступы/шрифты. DOM не переставляется. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodCompact()"
+    },
+    {
+      "value": "claud1.fit",
+      "methodId": "fit",
+      "title": "Контрольный safe-fit",
+      "description": "Равномерный zoom исходной секции к ширине 900px — честный ориентир «пусто/обрезано». [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodFit()"
+    },
+    {
+      "value": "claud1.heroMedia",
+      "methodId": "heroMedia",
+      "title": "Главное медиа",
+      "description": "Full-bleed герой (~64% высоты) с заголовком-подписью поверх затемнения. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodHeroMedia()"
+    },
+    {
+      "value": "claud1.mediaGrid",
+      "methodId": "mediaGrid",
+      "title": "Вертикальная медиасетка",
+      "description": "Для 2+ изображений: крупный якорь (4:5) + сетка тайлов вместо тесного стека сверху. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodMediaGrid()"
+    },
+    {
+      "value": "claud1.smart",
+      "methodId": "smart",
+      "title": "Реконструкция по ролям",
+      "description": "Разбирает шаблон на роли и собирает заново: заголовок → медиа → текст → мета внизу. [Claude 1, своя реализация]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodSmart()"
+    },
+    {
+      "value": "claud1.split",
+      "methodId": "split",
+      "title": "Редакционный split",
+      "description": "Делит кадр на две зоны: медиа (или заголовок) сверху, текст/мета снизу, с линией раздела. [Claude 1]",
+      "family": {
+        "key": "claud1",
+        "label": "Claude 1",
+        "badge": "CLAUDE 1"
+      },
+      "sourceFile": "add-916-adaptation-methods_Claud1/src/lib/methods/{baseline,advanced}.ts",
+      "locator": "index.html · script-блок «fam_claud1» (CLAUD1) · CLAUD1.methodSplit()"
+    },
+    {
+      "value": "gemini.heroMedia",
+      "methodId": "heroMedia",
+      "title": "Композиция с главным медиа",
+      "description": "Доминирующее медиа вертикального масштаба (4:5 / 1:1) с выверенной типографикой вокруг.",
+      "family": {
+        "key": "gemini",
+        "label": "Gemini Cool",
+        "badge": "GEMINI"
+      },
+      "sourceFile": "add-916-adaptation-methods_Gemini Cool/src/algorithms/recompose.ts",
+      "locator": "index.html · script-блок «fam_gemini» (GEMINI) · GEMINI.METHOD_MAP[\"heroMedia\"] → applyNewMethodRules"
+    },
+    {
+      "value": "grok.compact",
+      "methodId": "compact",
+      "title": "Адаптивная сетка",
+      "description": "flattenColumns + уплотнение: многоколоночные сетки в одну колонку. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"compact\",t) → METHODS"
+    },
+    {
+      "value": "grok.fit",
+      "methodId": "fit",
+      "title": "Контрольный safe-fit",
+      "description": "Минимальное вмешательство, контроль переполнения шрифтом 28px. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"fit\",t) → METHODS"
+    },
+    {
+      "value": "grok.mediastack",
+      "methodId": "mediastack",
+      "title": "Медиа по высоте",
+      "description": "Каждое медиа — отдельный крупный кадр по высоте, горизонтальные пары разобраны. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"mediastack\",t) → METHODS"
+    },
+    {
+      "value": "grok.smart",
+      "methodId": "smart",
+      "title": "Реконструкция по ролям",
+      "description": "Ролевая пересборка исходного DOM специальными обработчиками (indexhero/matrix/about/contact/services). [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"smart\",t) → METHODS"
+    },
+    {
+      "value": "grok.split",
+      "methodId": "split",
+      "title": "Редакционный split",
+      "description": "Текст и медиа разведены в две зоны с линией-разделителем. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"split\",t) → METHODS"
+    },
+    {
+      "value": "grok.type",
+      "methodId": "type",
+      "title": "Типографический столбец",
+      "description": "Масштаб заголовка сохранён, медиа сведено к горизонтальной планке. [Grok React]",
+      "family": {
+        "key": "grok",
+        "label": "Grok (React)",
+        "badge": "GROK REACT"
+      },
+      "sourceFile": "GROK-169-to-916/src/engine/{methodsLegacy,methodsNew}.ts",
+      "locator": "index.html · script-блок «fam_grok» (GROK React) · GROK.convertFromOriginal(html,\"type\",t) → METHODS"
+    },
+    {
+      "value": "grok001.balanced",
+      "methodId": "balanced",
+      "title": "Сбалансированная",
+      "description": "Делит кадр на зоны по визуальному весу между верхней и нижней половинами. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.balanced → GROK001.run()"
+    },
+    {
+      "value": "grok001.compact",
+      "methodId": "compact",
+      "title": "Адаптивная сетка",
+      "description": "Оригинал 1440px масштабируется transform:scale(.625) в 900px рамку. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.compact → GROK001.run()"
+    },
+    {
+      "value": "grok001.editorial",
+      "methodId": "editorial",
+      "title": "Вертикальная редакционная",
+      "description": "Шапка вверху, подвал прижат к низу, медиа и текст делят середину. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.editorial → GROK001.run()"
+    },
+    {
+      "value": "grok001.fit",
+      "methodId": "fit",
+      "title": "Контрольный safe-fit",
+      "description": "Масштаб всего холста (.6) в кадр — контрольный вариант. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.fit → GROK001.run()"
+    },
+    {
+      "value": "grok001.hero",
+      "methodId": "hero",
+      "title": "Главное медиа",
+      "description": "Отдаёт большую часть высоты одному главному изображению, текст — подписью. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.hero → GROK001.run()"
+    },
+    {
+      "value": "grok001.mediastack",
+      "methodId": "mediastack",
+      "title": "Медиа по высоте",
+      "description": "Изображения растягиваются в крупные последовательные блоки на всю высоту. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.mediastack → GROK001.run()"
+    },
+    {
+      "value": "grok001.smart",
+      "methodId": "smart",
+      "title": "Реконструкция по ролям",
+      "description": "Перекомпоновывает заголовки, медиа и метаданные под вертикальный кадр 9:16. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.smart → GROK001.run()"
+    },
+    {
+      "value": "grok001.split",
+      "methodId": "split",
+      "title": "Редакционный split",
+      "description": "Две колонки: текст | медиа. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.split → GROK001.run()"
+    },
+    {
+      "value": "grok001.typographic",
+      "methodId": "typographic",
+      "title": "Типографическая",
+      "description": "Крупный заголовок по вертикали, метаданные у нижнего края. [Grok 001]",
+      "family": {
+        "key": "grok001",
+        "label": "Grok (single-file 001)",
+        "badge": "GROK 001"
+      },
+      "sourceFile": "recompose-studio-9x16_v Grok_001.html",
+      "locator": "index.html · script-блок «fam_grok001» (GROK 001) · GROK001.METHODS.typographic → GROK001.run()"
+    },
+    {
+      "value": "iface.compact",
+      "methodId": "compact",
+      "title": "Адаптивная сетка",
+      "description": "Сохраняет исходный DOM и дизайн-систему, уплотняет отступы, размеры и межблочные интервалы.",
+      "family": {
+        "key": "iface",
+        "label": "Базовая лаборатория",
+        "badge": "ИСХОДНАЯ"
+      },
+      "sourceFile": "Interface/recompose-studio-9x16.html",
+      "locator": "index.html · script-блок 0 «эталонная лаборатория» · buildConverted(html,t,\"compact\") + smartStructure/targetCss"
+    },
+    {
+      "value": "iface.fit",
+      "methodId": "fit",
+      "title": "Контрольный safe-fit",
+      "description": "Диагностический вариант: минимально меняет структуру и уменьшает переполнение до безопасных границ.",
+      "family": {
+        "key": "iface",
+        "label": "Базовая лаборатория",
+        "badge": "ИСХОДНАЯ"
+      },
+      "sourceFile": "Interface/recompose-studio-9x16.html",
+      "locator": "index.html · script-блок 0 «эталонная лаборатория» · buildConverted(html,t,\"fit\") + smartStructure/targetCss"
+    },
+    {
+      "value": "v3011.editorial",
+      "methodId": "editorial",
+      "title": "Вертикальная редакционная композиция",
+      "description": "Собирает вступление, медиаполе и метаданные в три осмысленных яруса, распределяя вес по высоте.",
+      "family": {
+        "key": "v3011",
+        "label": "Single-file v3-011",
+        "badge": "V3-011"
+      },
+      "sourceFile": "recompose-studio-9x16_v 3-011.html",
+      "locator": "index.html · script-блок «fam_v3011» (Single-file v3-011) · EXPERIMENTAL_METHODS → experimentalStructure/experimentalCss (id=\"editorial\")"
+    },
+    {
+      "value": "v3011.mediaGrid",
+      "methodId": "mediaGrid",
+      "title": "Вертикальная медиасетка",
+      "description": "Для двух и более медиа строит последовательность крупных кадров вместо случайной верхней группы.",
+      "family": {
+        "key": "v3011",
+        "label": "Single-file v3-011",
+        "badge": "V3-011"
+      },
+      "sourceFile": "recompose-studio-9x16_v 3-011.html",
+      "locator": "index.html · script-блок «fam_v3011» (Single-file v3-011) · EXPERIMENTAL_METHODS → experimentalStructure/experimentalCss (id=\"mediaGrid\")"
+    }
+  ],
+  "summaryMarkdown": "# Recompose 9:16 — выбор пользователя\n\nФавориты (★): 15 из 40 методов.\n\n- `claud1.balanced` — Сбалансированная композиция (Claude 1)\n- `claud1.editorial` — Вертикальная редакционная композиция (Claude 1)\n- `claud1.typographic` — Типографическая вертикальная композиция (Claude 1)\n- `gemini.balanced` — Сбалансированная композиция (Gemini Cool)\n- `gemini.editorial` — Вертикальная редакционная композиция (Gemini Cool)\n- `gemini.heroMedia` — Композиция с главным медиа (Gemini Cool)\n- `gemini.mediaGrid` — Вертикальная медиасетка (Gemini Cool)\n- `gemini.typographic` — Типографический вертикальный плакат (Gemini Cool)\n- `grok.balanced` — Сбалансированная (Grok (React))\n- `grok.editorial` — Вертикальная редакционная (Grok (React))\n- `grok.hero` — Главное медиа (Grok (React))\n- `iface.smart` — Реконструкция по ролям (Базовая лаборатория)\n- `iface.split` — Редакционный split (Базовая лаборатория)\n- `v3011.hero` — Главное медиа (Single-file v3-011)\n- `v3011.type` — Типографический постер (Single-file v3-011)\n\nИсключённые (⊘): 26\n\n- `claud1.compact` — Адаптивная сетка\n- `claud1.fit` — Контрольный safe-fit\n- `claud1.heroMedia` — Главное медиа\n- `claud1.mediaGrid` — Вертикальная медиасетка\n- `claud1.smart` — Реконструкция по ролям\n- `claud1.split` — Редакционный split\n- `gemini.heroMedia` — Композиция с главным медиа\n- `grok.compact` — Адаптивная сетка\n- `grok.fit` — Контрольный safe-fit\n- `grok.mediastack` — Медиа по высоте\n- `grok.smart` — Реконструкция по ролям\n- `grok.split` — Редакционный split\n- `grok.type` — Типографический столбец\n- `grok001.balanced` — Сбалансированная\n- `grok001.compact` — Адаптивная сетка\n- `grok001.editorial` — Вертикальная редакционная\n- `grok001.fit` — Контрольный safe-fit\n- `grok001.hero` — Главное медиа\n- `grok001.mediastack` — Медиа по высоте\n- `grok001.smart` — Реконструкция по ролям\n- `grok001.split` — Редакционный split\n- `grok001.typographic` — Типографическая\n- `iface.compact` — Адаптивная сетка\n- `iface.fit` — Контрольный safe-fit\n- `v3011.editorial` — Вертикальная редакционная композиция\n- `v3011.mediaGrid` — Вертикальная медиасетка\n\nАктивный метод: `claud1.typographic`; шаблон: Швейцарская модульная матрица концепта\n\nРежим «только фавориты» включён (перебор по ★)."
+}

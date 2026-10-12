@@ -1,0 +1,25 @@
+{
+  "id": "iface-split",
+  "name": "Редакционный split · Базовая лаборатория",
+  "version": "1.0.0",
+  "description": "При наличии текста и медиа делает явную двухколоночную композицию.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 113,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

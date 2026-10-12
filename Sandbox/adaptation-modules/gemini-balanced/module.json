@@ -1,0 +1,25 @@
+{
+  "id": "gemini-balanced",
+  "name": "Сбалансированная композиция · Gemini Cool",
+  "version": "1.0.0",
+  "description": "Равномерное распределение визуального веса и адаптивные интервалы по золотому сечению.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 104,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

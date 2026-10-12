@@ -1,0 +1,25 @@
+{
+  "id": "grok-hero",
+  "name": "Главное медиа · Grok (React)",
+  "version": "1.0.0",
+  "description": "Первое медиа занимает основную высоту кадра, текст — обвязка сверху и снизу. [Grok React]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 111,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

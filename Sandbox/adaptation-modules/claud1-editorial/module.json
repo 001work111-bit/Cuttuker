@@ -1,0 +1,25 @@
+{
+  "id": "claud1-editorial",
+  "name": "Вертикальная редакционная композиция · Claude 1",
+  "version": "1.0.0",
+  "description": "Flex-grow растягивает группы на всю высоту 1600px вместо скопления наверху. [Claude 1]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 102,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

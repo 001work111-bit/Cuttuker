@@ -1,0 +1,25 @@
+{
+  "id": "iface-smart",
+  "name": "Реконструкция по ролям · Базовая лаборатория",
+  "version": "1.0.0",
+  "description": "Перекомпоновывает заголовки, медиа и метаданные под вертикальный кадр 9:16.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 112,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

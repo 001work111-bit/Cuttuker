@@ -1,0 +1,25 @@
+{
+  "id": "gemini-typographic",
+  "name": "Типографический вертикальный плакат · Gemini Cool",
+  "version": "1.0.0",
+  "description": "Монументальная швейцарская типографика, ритмичные манифесты и структурированные списки.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 108,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

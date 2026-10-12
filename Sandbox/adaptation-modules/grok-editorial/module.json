@@ -1,0 +1,25 @@
+{
+  "id": "grok-editorial",
+  "name": "Вертикальная редакционная · Grok (React)",
+  "version": "1.0.0",
+  "description": "Роли распределены по высоте 1600px через space-between; мета закреплена внизу. [Grok React]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 110,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

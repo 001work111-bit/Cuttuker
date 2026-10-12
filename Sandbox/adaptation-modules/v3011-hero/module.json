@@ -1,0 +1,25 @@
+{
+  "id": "v3011-hero",
+  "name": "Главное медиа · Single-file v3-011",
+  "version": "1.0.0",
+  "description": "Выводит один ведущий кадр в центральную часть портрета, оставляя тексту вход и подписи.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 114,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

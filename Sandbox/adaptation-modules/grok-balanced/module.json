@@ -1,0 +1,25 @@
+{
+  "id": "grok-balanced",
+  "name": "Сбалансированная · Grok (React)",
+  "version": "1.0.0",
+  "description": "CSS grid с 1fr-рядом под медиа, низ кадра занят метой; пустота входит в ритм. [Grok React]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 109,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

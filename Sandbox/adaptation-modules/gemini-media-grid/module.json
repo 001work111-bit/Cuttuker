@@ -1,0 +1,25 @@
+{
+  "id": "gemini-media-grid",
+  "name": "Вертикальная медиасетка · Gemini Cool",
+  "version": "1.0.0",
+  "description": "Последовательность крупных кадров и асимметричная вертикальная раскладка для шаблонов с 2+ медиа.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 107,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}
