@@ -1,0 +1,25 @@
+{
+  "id": "claud1-typographic",
+  "name": "Типографическая вертикальная композиция · Claude 1",
+  "version": "1.0.0",
+  "description": "Заголовок резко увеличен и держит композицию, медиа — маленький акцент в углу. [Claude 1]",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 103,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

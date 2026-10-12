@@ -1,0 +1,25 @@
+{
+  "id": "v3011-type",
+  "name": "Типографический постер · Single-file v3-011",
+  "version": "1.0.0",
+  "description": "Центрирует заявление и управляет свободным полем, не превращая текстовый шаблон в узкую колонку.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 115,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

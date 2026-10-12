@@ -1,0 +1,25 @@
+{
+  "id": "gemini-editorial",
+  "name": "Вертикальная редакционная композиция · Gemini Cool",
+  "version": "1.0.0",
+  "description": "Делит кадр на трёхчастную иерархию: вводка → ядро с медиа → заземлённый футер, без пустоты снизу.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 105,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}

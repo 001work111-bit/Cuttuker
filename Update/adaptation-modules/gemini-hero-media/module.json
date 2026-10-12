@@ -1,0 +1,25 @@
+{
+  "id": "gemini-hero-media",
+  "name": "Композиция с главным медиа · Gemini Cool",
+  "version": "1.0.0",
+  "description": "Доминирующее медиа вертикального масштаба (4:5 / 1:1) с выверенной типографикой вокруг.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "9:16"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 106,
+  "engineApi": 1,
+  "markup": [
+    ".sv-section"
+  ]
+}
