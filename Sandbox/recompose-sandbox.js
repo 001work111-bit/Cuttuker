@@ -436,11 +436,13 @@ window.RC_viewMarkup=function(id){
 // Поля кадра. canvas — эталонный холст Frame Contract (1920×1080), как требует контракт и импорт.
 // frameContract — та же строка, что пишет импорт (tpl2.frameContract = normalizedFrame.contract).
 // recomposeFrame — рабочий кадр движка 1600×900; новое поле, существующие не меняются.
+// Рабочий кадр выбранного формата из реестра движка (16:9 → 1600×900, 9:16 → 900×1600 и т.д.)
+function RC_FMT_WH(){ const f=(window.RecomposeCore.FORMATS||{})[rcFmt()]||(window.RecomposeCore.FORMATS||{})['16:9']; return {w:f.w, h:f.h}; }
 function rcFrameFields(){
   const info = window.SB_FRAME_CONTRACT && SB_FRAME_CONTRACT.info ? SB_FRAME_CONTRACT.info(rcFmt()) : null;
   const c = (info && info.canvas) || {width:1920,height:1080};
   return { aspect:rcFmt(), canvas:{width:c.width,height:c.height}, frameContract:'sandbox-frame-v1',
-           recomposeFrame:{ w:1600, h:900, algo:window.RecomposeCore.ALGO } };
+           recomposeFrame:{ w:RC_FMT_WH().w, h:RC_FMT_WH().h, algo:window.RecomposeCore.ALGO } };
 }
 function rcMeta(srcId, srcHash, r, m){
   const d=r.diagnostics||{};
@@ -662,4 +664,43 @@ function rcOnManifest(){
 window.addEventListener('sb-manifest', rcOnManifest);
 rcOnManifest();
 window.RC_state=RC;
+})();
+
+/* ---- масштаб кадров и вписывание портретного предпросмотра ----
+   Масштаб сцены считается по фактической ширине кадра (не через calc в transform:
+   старые Chromium/Electron его не понимают и откатываются к неверному масштабу). */
+(function(){
+  function fitStage(frame){
+    const st=frame.querySelector(':scope > .rc-stage');
+    if(!st) return;
+    const base=parseFloat(st.style.width);
+    if(!base || !frame.clientWidth) return;
+    st.style.transform='scale('+(frame.clientWidth/base)+')';
+  }
+  const ro=('ResizeObserver' in window) ? new ResizeObserver(en=>en.forEach(e=>fitStage(e.target))) : null;
+  function watch(root){
+    if(!root) return;
+    root.querySelectorAll('.rc-frame').forEach(f=>{
+      if(ro && !f.__rcObs){ f.__rcObs=true; ro.observe(f); }
+      fitStage(f);
+    });
+  }
+  const sw=document.getElementById('stageWrap');
+  const pvEl=()=>document.getElementById('preview'), galEl=()=>document.getElementById('galRoot');
+  // портретный кадр (h > w) в «Один» вписывается по высоте окна
+  function fitPortrait(){
+    const pv=pvEl();
+    const f=pv && pv.querySelector('.rc-frame');
+    const m=f && /([\d.]+)\s*\/\s*([\d.]+)/.exec(f.style.aspectRatio||'');
+    if(!sw) return;
+    if(!m || !(+m[2] > +m[1])){ sw.style.maxWidth=''; return; }
+    const top=sw.getBoundingClientRect().top;
+    const avail=Math.max(200, window.innerHeight-top-16);
+    sw.style.maxWidth=Math.floor(avail*(+m[1])/(+m[2]))+'px';
+  }
+  function all(){ watch(pvEl()); watch(galEl()); fitPortrait(); }
+  // галерея создаётся позже загрузки, поэтому следим за всем документом
+  new MutationObserver(all).observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('resize',all);
+  all();
 })();
