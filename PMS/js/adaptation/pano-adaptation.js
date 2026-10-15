@@ -87,8 +87,9 @@
       format: format,
       algo: r.algo,
       html: r.status === "failed" ? "" : String(r.html || ""),
-      // размеры дизайна Pano = эталонный холст (как у системных 16:9 — 1920×1080); кадр движка тех же пропорций
-      frameW: contract ? contract.width : (frame.w || 0), frameH: contract ? contract.height : (frame.h || 0),
+      // frameW/H — рабочая система координат HTML результата (1600×900 / 900×1600), та же, что у Sandbox.
+      // Контрактный холст (1920×1080 / 1080×1920) — только метаданные: res.contract → canvas шаблона.
+      frameW: frame.w || 0, frameH: frame.h || 0,
       workW: frame.w || 0, workH: frame.h || 0,
       contract: contract,
       warnings: r.warnings || [], reasons: r.reasons || [], notes: r.notes || [],
@@ -123,8 +124,61 @@
   function formats() {
     if (!core()) return [];
     return core().listFormats().filter(function (f) { return f.id; })
-      .map(function (f) { return { id: f.id, label: f.label || f.id, validated: !!f.validated }; });
+      .map(function (f) { return { id: f.id, label: f.label || f.id, validated: !!f.validated, w: f.w, h: f.h }; });
   }
+
+  // Размеры дизайна шаблона = система координат его HTML.
+  // Приоритет: записанные designW/designH → рабочие размеры формата из реестра → canvas (только пропорция)
+  // → aspect (только пропорция). Без данных — явный fallback 16:9, а не неявный дефолт.
+  function designSize(t) {
+    if (t && +t.designW > 0 && +t.designH > 0) return { w: +t.designW, h: +t.designH, source: "designW" };
+    if (t && t.format) {
+      var f = formats().filter(function (x) { return x.id === t.format; })[0];
+      if (f && f.w > 0 && f.h > 0) return { w: f.w, h: f.h, source: "format" };
+    }
+    var r = 0, src = "";
+    var c = t && t.canvas;
+    if (c && (c.w || c.width) > 0 && (c.h || c.height) > 0) { r = (c.w || c.width) / (c.h || c.height); src = "canvas"; }
+    if (!r && t && t.aspect) {
+      var m = /^\s*(\d+(?:\.\d+)?)\s*[:\/x×]\s*(\d+(?:\.\d+)?)\s*$/.exec(String(t.aspect));
+      if (m && +m[1] > 0 && +m[2] > 0) { r = +m[1] / +m[2]; src = "aspect"; }
+    }
+    if (!r) return { w: 1920, h: 1080, source: "fallback-16:9" };
+    return { w: 1920, h: Math.round(1920 / r), source: src };
+  }
+
+  // Масштаб сцены результата: ширина рамки / рабочая ширина кадра (900 или 1600).
+  // Без calc() в transform: старые Chromium/Electron его не понимают, см. ADAPTATION_FORMAT_LESSONS.md.
+  function fitRcStage(frame) {
+    var st = frame && frame.querySelector(":scope > .rc-stage");
+    if (!st) return;
+    var base = parseFloat(st.style.width);
+    if (!base || !frame.clientWidth) return;
+    st.style.transform = "scale(" + (frame.clientWidth / base) + ")";
+  }
+  var rcRO = ("ResizeObserver" in window) ? new ResizeObserver(function (en) {
+    en.forEach(function (e) { fitRcStage(e.target); });
+  }) : null;
+  function fitRcStages(root) {
+    if (!root || root.nodeType !== 1) return;
+    var list = root.matches && root.matches(".rc-frame") ? [root] : [];
+    list = list.concat([].slice.call(root.querySelectorAll(".rc-frame")));
+    list.forEach(function (f) {
+      if (rcRO && !f.__rcObs) { f.__rcObs = true; rcRO.observe(f); }
+      fitRcStage(f);
+    });
+  }
+  // Любой новый .rc-frame в документе (предпросмотр, монитор, галерея шаблонов) получает масштаб
+  function startRcObserver() {
+    if (!document.body) { document.addEventListener("DOMContentLoaded", startRcObserver); return; }
+    new MutationObserver(function (recs) {
+      recs.forEach(function (r) {
+        [].forEach.call(r.addedNodes, function (n) { fitRcStages(n); });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+    fitRcStages(document.body);
+  }
+  startRcObserver();
 
   // методы для формата, совместимые с исходным форматом и сценарием
   function methods(format, scenario, sourceFormat) {
@@ -250,14 +304,15 @@
       if (!prevEl) return;
       prevEl.style.display = "";
       var availW = Math.max(120, prevEl.clientWidth || 240), maxH = 240;
-      if (res && res.html) {
-        var rw = res.frameW || 1600, rh = res.frameH || 900;
+      if (res && res.html && res.frameW > 0 && res.frameH > 0) {
+        var rw = res.frameW, rh = res.frameH;
         var w = Math.min(availW, maxH * rw / rh), h = w * rh / rw;
         prevEl.innerHTML = '<div class="adaptPreviewFrame" style="width:' + Math.round(w) + 'px;height:' + Math.round(h) + 'px">' + res.html + '</div>';
+        fitRcStages(prevEl);
         return;
       }
       if (!src || !src.html) { prevEl.innerHTML = ""; prevEl.style.display = "none"; return; }
-      var d = cfg.designSize ? cfg.designSize() : { w: 1920, h: 1080 };
+      var d = cfg.designSize ? cfg.designSize() : designSize(null);
       var ow = Math.min(availW, maxH * d.w / d.h), oh = ow * d.h / d.w, k = ow / d.w;
       prevEl.innerHTML = '<div class="adaptPreviewFrame" style="width:' + Math.round(ow) + 'px;height:' + Math.round(oh) + 'px">' +
         '<div style="position:absolute;left:0;top:0;width:' + d.w + 'px;height:' + d.h + 'px;transform-origin:0 0;transform:scale(' + k + ')">' + src.html + '</div></div>';
@@ -375,6 +430,7 @@
     slotNames: slotNames, textHash: textHash, hash: hash, stripNodeAttrs: stripNodeAttrs,
     stepSelect: stepSelect, makeWheelStepper: makeWheelStepper,
     setPreview: setPreview, clearPreview: clearPreview, previewFor: previewFor, previewHtml: previewHtml,
+    designSize: designSize, fitRcStages: fitRcStages,
     errors: function () { return adapt() ? adapt().errors() : []; },
     modules: function () { return adapt() ? adapt().ids() : []; }
   };

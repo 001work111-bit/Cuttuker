@@ -293,9 +293,11 @@ function templateRenderHtml(block){
 }
 function templateBlockDesign(block){
   var p=block&&window.PMS_ADAPT&&PMS_ADAPT.previewFor(block.id);
-  if(p)return{w:p.frameW||1600,h:p.frameH||900};
+  if(p&&p.frameW>0&&p.frameH>0)return{w:p.frameW,h:p.frameH};
   var meta=block&&block.templateMeta||{},t=block&&findTemplate(block.templateId);
-  return{w:+(meta.designW||(t&&t.designW)||1920)||1920,h:+(meta.designH||(t&&t.designH)||1080)||1080};
+  var src=(meta.designW>0&&meta.designH>0)?{designW:meta.designW,designH:meta.designH,format:meta.format}:Object.assign({},t||{},{format:meta.format||(t&&t.format)});
+  var ds=(window.PMS_ADAPT&&PMS_ADAPT.designSize)?PMS_ADAPT.designSize(src):{w:1920,h:1080};
+  return{w:ds.w,h:ds.h};
 }
 function ensureTemplateBlockState(block){
   if(!block||!blockIsTemplate(block))return null;
@@ -442,8 +444,9 @@ function saveTemplateBlockAsNewTemplate(block,opts){
   def.desc=String(meta.desc||def.desc||'').trim();
   def.html=String(block.templateHtml||def.html||'');
   def.format=meta.format||def.format||project.aspect;
-  def.designW=+(meta.designW||def.designW||1920)||1920;
-  def.designH=+(meta.designH||def.designH||1080)||1080;
+  var dsz=(window.PMS_ADAPT&&PMS_ADAPT.designSize)?PMS_ADAPT.designSize({designW:meta.designW||def.designW,designH:meta.designH||def.designH,format:def.format}):{w:1920,h:1080};
+  def.designW=dsz.w;
+  def.designH=dsz.h;
   def.canvas=deepClone(meta.canvas||def.canvas||{format:def.format,w:def.designW,h:def.designH,resolution:def.designW+'x'+def.designH});
   def.adaptation=normalizeAdaptationMeta(meta.adaptation);   // метод/исходник сохраняются с шаблоном
   def.tags=ensureStringArray((source&&source.tags)||meta.tags||def.tags||[]);

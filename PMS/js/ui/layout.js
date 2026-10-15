@@ -455,7 +455,7 @@ function mountLibraryAdapt(box,t){
   PMS_ADAPT.mount($("itplAdapt"),{
     scenario:"library",
     format:t.format||"16:9",
-    designSize:function(){return{w:+t.designW||1920,h:+t.designH||1080}},
+    designSize:function(){return PMS_ADAPT.designSize(t)},
     method:t.adaptation?t.adaptation.method:"",
     sourceFormat:function(){return libraryAdaptSource(t).format},
     getSource:function(){return libraryAdaptSource(t)},

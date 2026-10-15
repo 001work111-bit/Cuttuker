@@ -190,6 +190,10 @@ function cleanTemplateGalleryDom(root){
 function getDragTemplateIds(e){
   try{var raw=e.dataTransfer.getData("text/x-templates")||"";if(!raw)return[];if(raw.charAt(0)==='[')return JSON.parse(raw);return raw.split(',').filter(Boolean)}catch(err){return[]}
 }
+// Размеры дизайна плитки: designW/H → формат/пропорция (PMS_ADAPT.designSize). Без адаптера — явный 16:9.
+function tplDesignSize(t){
+  return (window.PMS_ADAPT&&PMS_ADAPT.designSize)?PMS_ADAPT.designSize(t):{w:1920,h:1080,source:"fallback-16:9"};
+}
 function fitTemplateTile(tile){
   if(!tile)return;
   var frame=tile.querySelector('.tplFrame'),stage=tile.querySelector('.tplScaleStage');
@@ -224,10 +228,10 @@ function renderTemplateGrid(){
   grid.innerHTML="";
   $("tplCount").textContent=list.length+" / "+ensureProjectTemplateLibrary().templates.length;
   list.forEach(function(t){
-    var tile=document.createElement("article");tile.className="tplTile"+(state.selectedTemplateIds.indexOf(t.id)>=0?" sel":"")+(state.activeTemplateId===t.id?" active":"");tile.dataset.id=t.id;tile.dataset.designW=t.designW||1920;tile.dataset.designH=t.designH||1080;tile.draggable=true;
+    var tile=document.createElement("article");tile.className="tplTile"+(state.selectedTemplateIds.indexOf(t.id)>=0?" sel":"")+(state.activeTemplateId===t.id?" active":"");tile.dataset.id=t.id;var ds=tplDesignSize(t);tile.dataset.designW=ds.w;tile.dataset.designH=ds.h;tile.draggable=true;
     var frame=document.createElement("div");frame.className="tplFrame";
     var stage=document.createElement("div");stage.className="tplScaleStage";
-    stage.style.width=(t.designW||1920)+"px";stage.style.height=(t.designH||1080)+"px";
+    stage.style.width=ds.w+"px";stage.style.height=ds.h+"px";
     stage.innerHTML=String(t.html||"");
     cleanTemplateGalleryDom(stage);
     frame.appendChild(stage);tile.appendChild(frame);

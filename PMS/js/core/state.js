@@ -234,14 +234,44 @@ function normalizeAdaptationMeta(a){
   if(!a||typeof a!=="object"||!a.method||typeof a.sourceHtml!=="string")return null;
   return deepClone(a);
 }
+// Метаданные Sandbox v8 (Recompose) при импорте: исходник 16:9 лежит в recompose_orig,
+// рабочая сцена — в recomposeFrame, контрактный холст — в frameContract. Берём только при наличии recompose_orig.
+function sandboxRecomposeInfo(raw){
+  if(!raw||typeof raw.recompose_orig!=="string"||!raw.recompose_orig.length)return null;
+  var r=(raw.recompose&&typeof raw.recompose==="object")?raw.recompose:{};
+  var fr=raw.recomposeFrame||{},fc=/(\d+)\D+(\d+)/.exec(String(raw.frameContract||""));
+  return{
+    format:String(r.format||raw.format||"9:16"),
+    method:String(r.method||""),
+    algo:String(r.algo||""),
+    sourceTpl:String(r.sourceTpl||""),
+    sourceHash:String(r.sourceHash||""),
+    status:String(r.status||""),
+    createdAt:String(r.createdAt||""),
+    working:(+fr.w>0&&+fr.h>0)?{w:+fr.w,h:+fr.h}:null,
+    contract:fc?{w:+fc[1],h:+fc[2]}:null,
+    sourceHtml:raw.recompose_orig
+  };
+}
+function sandboxRecomposeAdaptation(info){
+  if(!info||!info.method)return null;
+  return normalizeAdaptationMeta({
+    method:info.method,methodName:"",algo:info.algo,format:info.format,
+    sourceFormat:"16:9",sourceTpl:info.sourceTpl,sourceLabel:"",sourceHtml:info.sourceHtml,
+    sourceHash:info.sourceHash,resultTextHash:"",status:info.status,
+    frame:info.working||{w:0,h:0},adaptedAt:info.createdAt,source:"sandbox-recompose"
+  });
+}
 function normalizeTemplateItem(raw){
   raw=raw||{};
+  var sbInfo=sandboxRecomposeInfo(raw);
   var canvas=raw.canvas||{};
   var cw=canvas.w||canvas.width||raw.width||raw.designW||(raw.motion&&raw.motion.canvas&&raw.motion.canvas.width)||(raw.motionStudio&&raw.motionStudio.canvas&&raw.motionStudio.canvas.w)||0;
   var ch=canvas.h||canvas.height||raw.height||raw.designH||(raw.motion&&raw.motion.canvas&&raw.motion.canvas.height)||(raw.motionStudio&&raw.motionStudio.canvas&&raw.motionStudio.canvas.h)||0;
-  var fmt=raw.format||raw.aspect||(raw.canvas&&raw.canvas.format)||(raw.motionStudio&&raw.motionStudio.format)||(raw.motion&&raw.motion.aspect)||msGuessFormat(cw,ch)||"16:9";
+  var fmt=raw.format||(sbInfo&&sbInfo.format)||raw.aspect||(raw.canvas&&raw.canvas.format)||(raw.motionStudio&&raw.motionStudio.format)||(raw.motion&&raw.motion.aspect)||msGuessFormat(cw,ch)||"16:9";
   var w=Math.max(16,(+cw)|0||(fmt==="9:16"?1080:1920));
   var h=Math.max(16,(+ch)|0||(fmt==="9:16"?1920:1080));
+  if(sbInfo&&sbInfo.contract){w=sbInfo.contract.w;h=sbInfo.contract.h;}
   var html=buildTemplateHtmlSource(raw);
   var motion=deepClone(raw.motionStudio||{});
   if(!Object.keys(motion).length&&raw.motion)motion=deepClone(raw.motion);
@@ -261,7 +291,7 @@ function normalizeTemplateItem(raw){
   var tags=collectTemplateTagsFrom(raw);
   return{
     id:tplId,
-    adaptation:normalizeAdaptationMeta(raw.adaptation),
+    adaptation:normalizeAdaptationMeta(raw.adaptation)||sandboxRecomposeAdaptation(sbInfo),
     tpl:String(raw.tpl||tplId||"").trim()||tplId,
     family:String(raw.family||tplId||"").trim()||tplId,
     group:String(raw.group||"Шаблоны").trim()||"Шаблоны",
@@ -278,8 +308,8 @@ function normalizeTemplateItem(raw){
     contractVersion:raw.contractVersion||"motion-studio-template-v1",
     format:fmt,
     canvas:{format:fmt,w:w,h:h,resolution:w+"x"+h,safeArea:canvas.safeArea?deepClone(canvas.safeArea):null},
-    designW:w,
-    designH:h,
+    designW:sbInfo&&sbInfo.working?sbInfo.working.w:w,
+    designH:sbInfo&&sbInfo.working?sbInfo.working.h:h,
     tags:tags,
     favorite:!!raw.favorite,
     motionStudio:motion

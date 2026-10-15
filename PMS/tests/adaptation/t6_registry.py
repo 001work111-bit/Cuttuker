@@ -11,7 +11,7 @@ def check(n, c, i=""):
 
 # эталонные дескрипторы — прямо из файлов библиотеки
 disk = {}
-for m in ["smart", "compact", "split", "fit"]:
+for m in sorted(d for d in os.listdir(os.path.join(ROOT, "adaptation-modules")) if os.path.isfile(os.path.join(ROOT, "adaptation-modules", d, "module.json"))):
     disk[m] = json.load(open(os.path.join(ROOT, "adaptation-modules", m, "module.json"), encoding="utf-8"))
 
 with sync_playwright() as p:
@@ -23,7 +23,7 @@ with sync_playwright() as p:
 
     reg = pg.evaluate("""(()=>{const A=RecomposeCore.adaptation;return A.ids().map(id=>{const d=A.get(id);return {id,name:d.name,version:d.version,targetFormats:d.targetFormats,sourceFormats:d.sourceFormats,apps:d.apps,scenarios:d.scenarios,order:d.order,engineApi:d.engineApi,hasAdapt:typeof d.adapt==='function',frozen:Object.isFrozen(d)}})})()""")
     ids = [r["id"] for r in reg]
-    check("зарегистрированы ровно четыре метода", sorted(ids) == ["compact", "fit", "smart", "split"], ids)
+    check("зарегистрированы все модули папки", sorted(ids) == sorted(disk), (len(ids), len(disk)))
     for r in reg:
         d = disk[r["id"]]
         check(f"{r['id']}: дескриптор совпадает с module.json на диске",
