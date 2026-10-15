@@ -294,6 +294,12 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner>div:first-child p{margin-top:4px!important}
 .sv-inner>.sv-media,.sv-inner>[data-sb-media]{width:100%!important;aspect-ratio:16/9!important;max-height:420px!important}
 `;
+ // fix2: портретные кадры (4:5, 5:6, 9:16) — медиа занимает остаток высоты, а не фиксированные 16:9 / 420px (локальное правило раскладки directions)
+ if(id.includes('showreelsplitdirections')) css+=`
+.sv-inner.sv-inner{display:flex!important;flex-direction:column!important;grid-template-columns:none!important;justify-content:center!important;gap:clamp(18px,2.6vw,30px)!important}
+.sv-inner>div:first-child h2{font-size:clamp(34px,5.6vw,52px)!important}
+.sv-inner>.sv-media,.sv-inner>[data-sb-media]{flex:1 1 0!important;min-height:0!important;width:100%!important;aspect-ratio:auto!important;max-height:none!important;height:auto!important}
+`;
  if(id.includes('showreelmicrogrid')) css+=`
 .sv-inner{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr)!important;gap:20px!important}
 .sv-inner>div:first-child{margin:0!important;padding-bottom:12px!important}

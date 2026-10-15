@@ -30,7 +30,7 @@
   const TOL = 0.01;
 
   const INSP = {
-    on:false, type:'all', q:'',
+    on:false, type:'all', q:'', dir:'all', risk:'all',
     open:new Set(),          // раскрытые записи (по умолчанию все свёрнуты)
     cache:new Map(),
     rows:[], ranAt:null, result:''
@@ -94,6 +94,8 @@
       else if(/^data-slot не задан/.test(m)) add('meta','warning','high', m+': слот не связывается с блоком в PMS и экспорте', {element:'data-slot'});
       else add('meta','warning','medium', m);
     });
+    const noSlotText=[...doc.body.querySelectorAll('[data-sb-editable]')].filter(e=>!e.hasAttribute('data-slot')).length;
+    if(noSlotText) add('meta','warning','high', `data-slot не задан у ${noSlotText} текстовых элементов: слой After Effects не сопоставится`, {element:'data-slot'});
     if(managed>0 && editableCount(doc)===0 && doc.body.querySelector('h1,h2,h3,h4,p,span,li'))
       add('ambiguous','warning','low','тексты без data-sb-editable: адаптер найдёт их по тегам h1–h4/p/span/li');
 
@@ -158,13 +160,97 @@
   }
   function recreatable(item){ return item.issues.some(x=>x.canRecreate); }   // обновление конверсии на месте
 
+  /* ---------- QC (fix3): четыре направления, уровни риска, маршрут действия ----------
+     Направления: adapt (адаптация), ae (After Effects), studio (монтажная студия), export (экспорт).
+     Уровни: high — подтверждённая блокирующая проблема; medium — вероятная/неполная совместимость;
+     low — незначительное; info — описание структуры (не ошибка). Пустое направление — ok.
+     Основание: «подтверждённая проверка» (высокая уверенность), «подозрение» (средняя), «отсутствие данных или подозрение» (низкая). */
+  const DIRS=[['adapt','Адаптация'],['ae','After Effects'],['studio','Монтажная студия'],['export','Экспорт и повторная обработка']];
+  const DIR_SHORT={adapt:'Адаптация',ae:'After Effects',studio:'Студия',export:'Экспорт'};
+  const RISKS=[['high','Высокий'],['medium','Средний'],['low','Низкий'],['info','Информация'],['ok','Без замечаний']];
+  const RISK_RANK={high:4,medium:3,low:2,info:1,ok:0};
+  const RISK_COLOR={high:'#ff5b6a',medium:'#e0b23a',low:'#7aa2ff',info:'#8b93a1',ok:'#3fbf7f'};
+  const ACT_TEXT={recreate:'Исправить в Sandbox',neural:'Подготовить пакет для нейросети',keep:'Оставить без изменений',hold:'Исключить из дальнейшей работы до проверки'};
+  function riskWord(r){ return (RISKS.find(x=>x[0]===r)||[0,r])[1]; }
+  function dirOf(x){
+    const reason=x.reason||'';
+    if(x.category==='outdated') return 'export';
+    if(x.category==='structure') return /исходник|связь/.test(reason)?'export':'studio';
+    if(x.category==='meta'){
+      if(x.element==='data-slot') return 'ae';
+      if(x.element==='data-role'||x.element==='aspect') return 'adapt';
+      if(x.element==='media'||x.optional) return 'studio';
+      if(x.element==='label') return 'export';
+      return 'ae';
+    }
+    if(x.category==='other') return /пустой HTML/.test(reason)?'studio':'adapt';
+    return /Формат|aspect/.test(reason)?'adapt':'ae';   // ambiguous
+  }
+  function riskOf(x){
+    if(x.severity==='info') return 'info';
+    if(x.category==='meta' && x.element==='data-slot') return 'high';            // без слота AE не сопоставит слой
+    if(x.category==='outdated' && /потеряла/.test(x.reason||'')) return 'high';  // потеря текста при конверсии
+    if(x.severity==='error') return x.confidence==='high'?'high':'medium';
+    if(x.confidence==='high' || x.confidence==='medium') return 'medium';
+    return 'low';
+  }
+  function basisOf(x){
+    if(x.category==='ambiguous') return 'отсутствие данных или подозрение';
+    return x.confidence==='high' ? 'подтверждённая проверка' : x.confidence==='medium' ? 'подозрение' : 'отсутствие данных или подозрение';
+  }
+  function actionOf(x){
+    if(x.severity==='info') return 'keep';
+    if(x.canRecreate) return 'recreate';
+    return 'neural';
+  }
+  function qcOf(issues){
+    const dirs={}; DIRS.forEach(([k])=>dirs[k]={level:'ok', items:[]});
+    (issues||[]).forEach(x=>{
+      const d=dirOf(x), r=riskOf(x);
+      dirs[d].items.push({ reason:x.reason, risk:r, basis:basisOf(x), action:actionOf(x), issue:x });
+      if(RISK_RANK[r]>RISK_RANK[dirs[d].level]) dirs[d].level=r;
+    });
+    return dirs;
+  }
+  function qcFilter(it){
+    if(INSP.dir==='all' && INSP.risk==='all') return true;
+    const ds=INSP.dir==='all'?DIRS.map(d=>d[0]):[INSP.dir];
+    return ds.some(d=>it.qc[d].items.some(x=> INSP.risk==='all' || x.risk===INSP.risk));
+  }
+  function qcMatrix(rows){
+    const cols=['high','medium','low'];
+    const body=DIRS.map(([d,l])=>{
+      const cnt={high:0,medium:0,low:0};
+      rows.forEach(it=>{ const lv=it.qc[d].level; if(cnt[lv]!==undefined) cnt[lv]++; });
+      return `<tr><td>${esc(l)}</td>${cols.map(c=>`<td>${cnt[c]?`<b style="color:${RISK_COLOR[c]}">${cnt[c]}</b>`:'<span style="color:#5b6371">0</span>'}</td>`).join('')}</tr>`;
+    }).join('');
+    return `<div class="li-meta">Шаблонов по худшему уровню риска в направлении (видимый список):</div><table class="qc-matrix" aria-label="Сводка по направлениям и рискам"><thead><tr><th>Направление</th>${cols.map(c=>`<th style="color:${RISK_COLOR[c]}">${riskWord(c)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  function qcStrip(it){
+    return `<div class="qc-strip">${DIRS.map(([d,l])=>{ const lv=it.qc[d].level; return `<span class="qc-cell" style="--r:${RISK_COLOR[lv]}" title="${esc(l)}: ${esc(riskWord(lv))}"><b>${esc(DIR_SHORT[d])}</b><span>${esc(riskWord(lv))}</span></span>`; }).join('')}</div>`;
+  }
+  function qcBlock(it){
+    const hq=LIB[it.id]||{};
+    const body=DIRS.map(([d,l])=>{
+      const D=it.qc[d];
+      if(!D.items.length) return `<div class="qc-item" style="--r:${RISK_COLOR.ok}"><span class="qc-tag" style="--r:${RISK_COLOR.ok}">${riskWord('ok')}</span><b>${esc(l)}</b></div>`;
+      return D.items.map(x=>`<div class="qc-item" style="--r:${RISK_COLOR[x.risk]}"><span class="qc-tag" style="--r:${RISK_COLOR[x.risk]}">${esc(riskWord(x.risk))}</span><b>${esc(l)}</b>: ${esc(x.reason)}<br><small>Основание: ${esc(x.basis)} · Действие: ${esc(ACT_TEXT[x.action])}</small></div>`).join('');
+    }).join('');
+    return `<div class="qc-block">${hq.qcHold?'<div class="qc-hold">Исключён из дальнейшей работы до проверки</div>':''}${hq.qcAck?'<small>Отмечено: оставлено без изменений</small>':''}${body}</div>`;
+  }
+  function scrollCard(id){
+    setTimeout(()=>{ try{ const c=[...document.querySelectorAll('[data-gal-grid] .gal-card')].find(x=>x.dataset.id===id); if(c) c.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){} },60);
+  }
+  function setAck(id){ if(!LIB[id]) return; pushUndo(); LIB[id].qcAck=!LIB[id].qcAck; store.save(); INSP.result=`«${LIB[id].label||id}»: ${LIB[id].qcAck?'отмечено: оставлено без изменений':'отметка снята'}.`; renderLib(); }
+  function toggleHold(id){ if(!LIB[id]) return; pushUndo(); LIB[id].qcHold=!LIB[id].qcHold; store.save(); INSP.result=`«${LIB[id].label||id}»: ${LIB[id].qcHold?'исключён до проверки — пакеты нейросети и пересоздание его не используют':'возвращён в работу'}.`; renderLib(); }
+
   function itemFor(id){
     const t=LIB[id]; const c=(S2_CONV||{})[id];
     const src=c && LIB[c.src];
     const k=tplHash(t)+'|'+(c?JSON.stringify(c):'')+'|'+(src?tplHash(src):'');
     let e=INSP.cache.get(id);
     if(!e || e.k!==k){ e={k, issues:diagnose(id)}; INSP.cache.set(id,e); }
-    return { id, tpl:t.tpl||id, label:t.label||t.tpl||id, code:t.code||'', issues:e.issues, cats:catsOf(e.issues) };
+    return { id, tpl:t.tpl||id, label:t.label||t.tpl||id, code:t.code||'', issues:e.issues, cats:catsOf(e.issues), qc:qcOf(e.issues), hold:!!t.qcHold, ack:!!t.qcAck };
   }
   function invalidate(id){ INSP.cache.delete(id); }
 
@@ -173,7 +259,7 @@
     const q=(INSP.q||'').trim().toLowerCase();
     const all=baseIds().map(itemFor);
     const withIssues=all.filter(it=>it.issues.length);
-    const inType=withIssues.filter(it=> INSP.type==='all' || it.cats.includes(INSP.type));
+    const inType=withIssues.filter(it=> (INSP.type==='all' || it.cats.includes(INSP.type)) && qcFilter(it));
     const rows=inType.filter(it=> !q || it.label.toLowerCase().includes(q) || it.tpl.toLowerCase().includes(q) || it.id.toLowerCase().includes(q));
     rows.sort((a,b)=>minRank(a)-minRank(b));
     const summary={
@@ -245,6 +331,8 @@
     const typeOpts=[['all','Все проблемы', v.summary.scope-v.summary.ok]].concat(CATS.map(([k])=>[k,CAT_TITLE[k],s[k]]))
       .map(([k,l,n])=>`<option value="${k}"${INSP.type===k?' selected':''}>${esc(l)} (${n})</option>`).join('');
 
+    const dirOpts=[['all','Все направления']].concat(DIRS).map(([k,l])=>`<option value="${k}"${INSP.dir===k?' selected':''}>${esc(l)}</option>`).join('');
+    const riskOpts=[['all','Все уровни']].concat(RISKS.slice(0,4)).map(([k,l])=>`<option value="${k}"${INSP.risk===k?' selected':''}>${esc(l)}</option>`).join('');
     let h=`<div class="li-root">
       <div class="li-head">
         <div style="flex:1;min-width:0"><div class="li-title">Проверка библиотеки</div>
@@ -253,11 +341,13 @@
         <button type="button" class="li-btn" data-li-act="close" title="Вернуть обычный список">Закрыть</button>
       </div>
       <div class="li-sum">Без проблем: <b>${v.summary.ok}</b> · с проблемами: <b>${v.summary.scope-v.summary.ok}</b> · в галерее показаны: <b>${window.SB_inspFilterIds?window.SB_inspFilterIds.size:0}</b></div>
+      ${qcMatrix(v.rows)}
       <div class="li-chips" role="group" aria-label="Тип проблемы">${chips}</div>
       <div class="li-ctl">
         <input type="search" data-li-q placeholder="Поиск по названию или ID" value="${esc(INSP.q)}">
         <select data-li-type-sel aria-label="Тип проблемы">${typeOpts}</select>
       </div>
+      <div class="li-ctl"><select data-li-dir aria-label="Направление">${dirOpts}</select><select data-li-risk aria-label="Уровень риска">${riskOpts}</select></div>
       <div class="li-list" data-li-list>`;
     if(!v.summary.scope){
       h+=`<div class="li-empty">В текущей выборке нет шаблонов. Сбросьте обычные фильтры в верхней панели.</div>`;
@@ -270,7 +360,7 @@
         const cat=top.category;
         const dlgId='li-d-'+String(it.id).replace(/[^a-z0-9_-]/gi,'_');
         const g=guide(top);
-        const detail=`<div class="li-detail" id="${dlgId}" ${open?'':'hidden'}>
+        const detail=`<div class="li-detail" id="${dlgId}" ${open?'':'hidden'}>${qcBlock(it)}
             ${it.issues.map(x=>{ const gx=guide(x); return `<div class="li-issue">
               <div class="li-issue-cat">${badge(CAT_SHORT[x.category], CAT_COLOR[x.category])}<span class="li-conf">уверенность: ${CONF_TEXT[x.confidence]}</span></div>
               <div><b>Причина:</b> ${esc(gx.explain)}</div>
@@ -278,7 +368,7 @@
               <div><b>Рекомендация:</b> ${esc(gx.recommend)}</div>
               ${x.src?`<div class="li-meta">источник: ${esc(x.src)}</div>`:''}
             </div>`; }).join('')}
-            <div class="li-one">
+            <div class="li-one"><button type="button" class="li-btn" data-li-one="keep" data-li-id="${esc(it.id)}">${it.ack?'Снять отметку «оставлено»':'Оставить без изменений'}</button><button type="button" class="li-btn${it.hold?'':' danger'}" data-li-one="hold" data-li-id="${esc(it.id)}">${it.hold?'Вернуть в работу':'Исключить до проверки'}</button>
               ${it.issues.some(x=>x.canRecreate)?`<button type="button" class="li-btn" data-li-one="recreate" data-li-id="${esc(it.id)}">Обновить конверсию на месте…</button>`:''}
               ${it.issues.some(x=>x.confidence!=='low' && x.category!=='ambiguous')?`<button type="button" class="li-btn" data-li-one="neural" data-li-id="${esc(it.id)}">В нейросеть…</button>`:''}
               ${deletable(it)?`<button type="button" class="li-btn danger" data-li-one="delete" data-li-id="${esc(it.id)}">Удалить…</button>`:''}
@@ -290,9 +380,9 @@
             <button type="button" class="li-tog" aria-expanded="${open?'true':'false'}" aria-controls="${dlgId}" data-li-toggle="${esc(it.id)}" title="${open?'Свернуть':'Раскрыть'}"><svg class="li-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#7d8594" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="li-sr">${open?'Свернуть':'Раскрыть'} запись</span></button>
             <input type="checkbox" data-li-id="${esc(it.id)}"${checked.has(it.id)?' checked':''} aria-label="Выбрать ${esc(it.label)}">
             <div class="li-main"><div class="li-name" title="${esc(it.label)}">${esc(it.label)}</div>
-              <div class="li-short">${badge(CAT_SHORT[cat], CAT_COLOR[cat])} <span>${esc(top.reason)}</span></div></div>
+              <div class="li-short">${badge(CAT_SHORT[cat], CAT_COLOR[cat])}${it.hold?' <span class="qc-hold">исключён до проверки</span>':''} <span>${esc(top.reason)}</span></div></div>
           </div>
-          ${detail}
+          ${qcStrip(it)}${detail}
         </div>`;
       }).join('');
     }
@@ -324,6 +414,8 @@
     if(q){ q.oninput=e=>{ INSP.q=e.target.value; render(); const again=rail.querySelector('[data-li-q]'); if(again){ again.focus(); again.setSelectionRange(again.value.length, again.value.length); } }; }
     const ts=rail.querySelector('[data-li-type-sel]');
     if(ts) ts.onchange=e=>{ INSP.type=e.target.value; renderLib(); };
+    const ds=rail.querySelector('[data-li-dir]'); if(ds) ds.onchange=e=>{ INSP.dir=e.target.value; renderLib(); };
+    const rs=rail.querySelector('[data-li-risk]'); if(rs) rs.onchange=e=>{ INSP.risk=e.target.value; renderLib(); };
     rail.querySelectorAll('[data-li-act]').forEach(b=>b.onclick=()=>act(b.getAttribute('data-li-act')));
     rail.querySelectorAll('[data-li-nav]').forEach(b=>b.onclick=()=>nav(+b.getAttribute('data-li-nav')));
     rail.querySelectorAll('[data-li-toggle]').forEach(b=>b.onclick=e=>{
@@ -338,10 +430,12 @@
       if(what==='recreate') recreateIds([id]);
       if(what==='neural') neuralIds([id]);
       if(what==='delete') deleteIds([id]);
+      if(what==='keep') setAck(id);
+      if(what==='hold') toggleHold(id);
     });
-    rail.querySelectorAll('[data-li-id]').forEach(c=>{
+    rail.querySelectorAll('input[data-li-id]').forEach(c=>{   // только чекбоксы: кнопки действий тоже несут data-li-id
       c.onclick=e=>e.stopPropagation();
-      c.onchange=()=>{ const id=c.getAttribute('data-li-id'); if(c.checked) checked.add(id); else checked.delete(id); if(c.checked) selectedId=id; renderLib(); };
+      c.onchange=()=>{ const id=c.getAttribute('data-li-id'); if(c.checked) checked.add(id); else checked.delete(id); if(c.checked){ selectedId=id; scrollCard(id); } renderLib(); };
     });
     rail.querySelectorAll('[data-li-row]').forEach(r=>r.onclick=e=>{
       if(e.target.closest('[data-li-id],[data-li-toggle],[data-li-one]')) return;
@@ -350,7 +444,7 @@
     if(window.SB_repair) window.SB_repair.bind(rail);
   }
 
-  function open(id){ if(LIB[id] && typeof selectTpl==='function') selectTpl(id,true); }
+  function open(id){ if(LIB[id] && typeof selectTpl==='function'){ selectTpl(id,true); scrollCard(id); } }
   function nav(step){
     const rows=INSP.rows; if(!rows.length) return;
     const idx=rows.findIndex(it=>it.id===selectedId);
@@ -363,8 +457,8 @@
     if(name==='rerun'){ INSP.cache.clear(); runAll(); INSP.result='Диагностика пересчитана.'; renderLib(); return; }
     if(name==='selall'){ INSP.rows.forEach(it=>checked.add(it.id)); INSP.result=`Выделено записей текущего списка: ${INSP.rows.length}.`; renderLib(); return; }
     if(name==='unselall'){ INSP.rows.forEach(it=>checked.delete(it.id)); INSP.result='Выделение текущего списка снято.'; renderLib(); return; }
-    if(name==='recreate') return recreateIds(targets());
-    if(name==='neural') return neuralIds(targets());
+    if(name==='recreate') return recreateIds(targets().filter(id=>!(LIB[id]&&LIB[id].qcHold)));
+    if(name==='neural') return neuralIds(targets().filter(id=>!(LIB[id]&&LIB[id].qcHold)));
     if(name==='delete') return deleteIds(targets());
   }
 
@@ -484,6 +578,18 @@
       .li-ctl input,.li-ctl select{font:inherit;font-size:11.5px;padding:4px 6px;border-radius:6px;background:#15181f;color:#e6e9ef;border:1px solid #2a2f3a;min-width:0}
       .li-ctl input{flex:1}
       .li-ctl select{max-width:52%}
+      .qc-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:5px 0 0 0}
+      .qc-cell{display:flex;flex-direction:column;border:1px solid #2a2f3a;border-left:4px solid var(--r);border-radius:6px;padding:3px 5px;background:#15181f;min-width:0;line-height:1.25}
+      .qc-cell b{font-size:10px;font-weight:600;color:#c9ced8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .qc-cell span{font-size:11px;font-weight:700;color:var(--r)}
+      .qc-matrix{width:100%;border-collapse:collapse;font-size:11px;margin:3px 0 4px}
+      .qc-matrix th,.qc-matrix td{border-bottom:1px solid #2a2f3a;padding:3px 4px;text-align:right;color:#c9ced8}
+      .qc-matrix th:first-child,.qc-matrix td:first-child{text-align:left}
+      .qc-block{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}
+      .qc-item{border:1px solid #2a2f3a;border-left:4px solid var(--r);border-radius:6px;padding:5px 7px;color:#c9ced8;font-size:11px;line-height:1.4}
+      .qc-item small{color:#8b93a1}
+      .qc-tag{display:inline-block;border-radius:999px;padding:0 7px;margin-right:5px;font-size:10px;font-weight:700;color:#0c0f14;background:var(--r)}
+      .qc-hold{color:#ff8a94;font-weight:600;font-size:11px}
       .li-list{overflow:auto;border:1px solid #2a2f3a;border-radius:8px;padding:4px;min-height:120px;max-height:46vh}
       .li-row{border:1px solid transparent;border-radius:7px;padding:4px 6px;margin-bottom:4px}
       .li-row:hover{background:#171b23}
@@ -530,6 +636,8 @@
   // Хуки для renderLib (Sandbox_Content.html)
   window.SB_inspectorActive=()=>INSP.on;
   window.SB_renderInspector=render;
-  window.SB_libraryAudit={ diagnose, diagnoseRec, catsOf, deletable, recreatable, setOn, invalidate, _state:INSP };
+  window.SB_libraryAudit={ diagnose, diagnoseRec, catsOf, deletable, recreatable, setOn, invalidate, _state:INSP,
+    qcOf, DIRS, RISKS, riskOf, dirOf,
+    qcSummaryOf:id=>{ const it=itemFor(id); return { dirs:it.qc, hold:it.hold, ack:it.ack }; } };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountButton); else mountButton();
 })();

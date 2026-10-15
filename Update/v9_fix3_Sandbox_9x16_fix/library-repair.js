@@ -88,6 +88,9 @@
       targets.push({
         tpl:id,
         problems: diag.map(x=>({ category:x.category, type:x.type, severity:x.severity, confidence:x.confidence, reason:x.reason, element:x.element||null })),
+        qc: (function(){ if(!(A && A.qcSummaryOf)) return null; const q=A.qcSummaryOf(id);
+          return { hold:!!q.hold, ack:!!q.ack, directions: Object.fromEntries(Object.entries(q.dirs).map(([k,v])=>[k,{ level:v.level, items:v.items.map(x=>({ risk:x.risk, basis:x.basis, action:x.action, reason:x.reason })) }])) }; })(),
+        expectedResult: diag.length ? 'Устранить перечисленные проблемы без потери обязательных элементов (data-slot, data-sb-editable, data-sb-media, роли): '+diag.map(x=>x.reason).join('; ') : 'Без изменений: замечаний нет',
         diagnostics: {
           editableCount: (parse(t.html).body.querySelectorAll('[data-sb-editable]').length),
           mediaCount: (parse(t.html).body.querySelectorAll('[data-sb-media],.sv-media').length),
