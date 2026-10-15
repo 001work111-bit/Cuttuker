@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pano Montage Studio — Stage 3 Template Library</title>
+<link rel="stylesheet" href="styles/app.css" />
+<script src="vendor/html2canvas.min.js"></script>
+</head>
+<body>
+<div id="app">
+<div id="topbar" class="row">
+  <button class="btn icon" id="btnInspToggle" type="button">☰</button><div class="sep"></div>
+  <span style="opacity:.6;font-size:11px;text-transform:uppercase">Режим</span>
+  <select id="modeSelect" class="btn">
+    <option value="pano-mon-tl">1 · Source + Монитор</option>
+    <option value="gal-mon-tl">2 · Библиотека + Монитор</option>
+    <option value="gal-pano-tl">3 · Библиотека + Source</option>
+    <option value="pano-tl">4 · Source + TL</option>
+    <option value="gal-tl">5 · Библиотека + TL</option>
+    <option value="mon-tl">6 · Монитор + TL</option>
+    <option value="mon-only">7 · Только монитор</option>
+  </select>
+  <span style="opacity:.6;font-size:11px;text-transform:uppercase">Источник</span>
+  <select id="sourceTypeSelect" class="btn">
+    <option value="pano">Панорама</option>
+    <option value="image">Плоское изображение</option>
+  </select>
+  <span style="opacity:.6;font-size:11px;text-transform:uppercase">Библиотека</span>
+  <select id="libraryModeSelect" class="btn">
+    <option value="assets">Картинки</option>
+    <option value="templates">Шаблоны</option>
+  </select>
+  <div class="sep"></div>
+  <label class="btn primary" for="filePano">+ Панорама</label><input id="filePano" class="file" type="file" accept="image/*" multiple />
+  <label class="btn primary" for="fileFlat">+ Плоское</label><input id="fileFlat" class="file" type="file" accept="image/*" multiple />
+  <label class="btn" for="fileImg">+ Картинки</label><input id="fileImg" class="file" type="file" accept="image/*" multiple />
+  <label class="btn" for="fileTemplateLib">+ Template Library</label><input id="fileTemplateLib" class="file" type="file" accept="application/json,.json,text/javascript,.js" /><button class="btn" id="btnRefreshTemplateLibs" type="button" title="Перечитать templates/ (*.js, *.json) без перезапуска">Обновить библиотеки</button>
+  <button class="btn primary" id="btnCapture" type="button">Capture</button>
+  <button class="btn warn" id="btnDraw" type="button">Draw</button>
+  <button class="btn warn" id="btnTitles" type="button">Titles</button>
+  <button class="btn" id="btnSwap" type="button">Switch</button>
+  <button class="btn" id="btnCut" type="button">Cut</button>
+  <button class="btn" id="btnMerge" type="button">Merge</button>
+  <div class="sep"></div>
+  <button class="btn primary" id="btnPlay" type="button">Play</button>
+  <button class="btn" id="btnToStart" type="button">⟲</button>
+  <button class="btn" id="btnMarkIn" type="button">In</button>
+  <button class="btn" id="btnMarkOut" type="button">Out</button>
+  <button class="btn" id="btnClearIO" type="button">Clear I/O</button>
+  <div class="sep"></div>
+  <button class="btn" id="btnFolder" type="button">+ Папка</button>
+  <button class="btn" id="btnTagLib" type="button">Теги…</button>
+  <button class="btn" id="btnRndSel" type="button">RND</button>
+  <button class="btn danger" id="btnDel" type="button">Delete</button>
+  <div class="sep"></div>
+  <button class="btn" id="btnUndo" type="button">Undo</button>
+  <button class="btn" id="btnRedo" type="button">Redo</button>
+  <div class="sep"></div>
+  <button class="btn" id="btnExportJson" type="button">Export JSON</button>
+  <button class="btn" id="btnExportAE" type="button">Export AE</button>
+  <button class="btn" id="btnExportPremiere" type="button">Export Premiere XML</button>
+  <label class="btn" for="fileJson">Import JSON</label><input id="fileJson" class="file" type="file" accept="application/json,.json" />
+  <div class="sep"></div><span class="stat" id="stat">ready</span>
+</div>
+<div id="work">
+  <aside id="inspectorPane">
+    <div class="inspHead"><div class="tabs">
+      <button class="tab active" data-insp="project" type="button">Проект</button>
+      <button class="tab" data-insp="asset" type="button">Картинка</button>
+      <button class="tab" data-insp="template" type="button">Шаблон</button>
+      <button class="tab" data-insp="block" type="button">Блок</button>
+    </div></div>
+    <div id="inspectorBody"></div>
+  </aside>
+  <div id="stage">
+    <div id="leftZone">
+      <div id="panoWrap" class="hide">
+        <div id="panoBox">
+          <canvas id="panoCanvas"></canvas>
+          <canvas id="imageCanvas" class="hide"></canvas>
+          <div id="imageEmpty" class="hide">Загрузите плоское изображение</div>
+          <div id="titlesLayer"><div id="titlesStage"><div id="titlesViewport"></div></div></div>
+          <div id="drawLayer"><div id="drawBg"></div><canvas id="drawCanvas"></canvas></div>
+          <div id="drawPopup">
+            <h4>Draw</h4>
+            <div class="field"><span>Фон α</span><div class="rangeRow"><input id="drawBgAlpha" type="range" min="0" max="100" value="85" /><b id="drawBgAlphaV">85%</b></div></div>
+            <div class="field"><span>Инструмент</span><select id="drawTool"><option value="pencil">Карандаш</option><option value="eraser">Ластик</option></select></div>
+            <div class="field"><span>Размер</span><div class="rangeRow"><input id="drawSize" type="range" min="1" max="64" value="6" /><b id="drawSizeV">6</b></div></div>
+            <div class="field"><span>Цвет</span><input id="drawColor" type="color" value="#111111" /></div>
+            <div class="row"><button class="btn" type="button" id="drawClear">Очистить</button><button class="btn primary" type="button" id="drawClose">Готово</button></div>
+          </div>
+          <div id="titlesPopup">
+            <h4>Titles / Design JSON</h4>
+            <div class="row" style="margin-bottom:8px;flex-wrap:wrap">
+              <label class="btn" for="fileTitles">Import JSON</label>
+              <input id="fileTitles" class="file" type="file" accept="application/json,.json" multiple />
+              <button class="btn" type="button" id="titlesPaste">Paste JSON</button>
+            </div>
+            <div class="inspMeta" style="margin:0 0 8px">Холст шаблона → кадр проекта: <b id="titlesCanvasInfo">—</b></div>
+            <div id="titlesList"></div>
+            <div class="field"><span>Текст слота</span><textarea id="titlesEditText" rows="3" placeholder="клик по data-sb-editable"></textarea></div>
+            <div class="row" style="flex-wrap:wrap">
+              <button class="btn primary" type="button" id="titlesApplyText">Применить</button>
+              <button class="btn" type="button" id="titlesCapAlpha">PNG α → галерея</button>
+              <button class="btn" type="button" id="titlesToOverlay">→ overlay TL</button>
+              <button class="btn" type="button" id="titlesClose">Закрыть</button>
+            </div>
+            <div class="inspMeta">Media-слот + выбранная картинка = подставить. Панорама крутится под слайдом.</div>
+          </div>
+          <div id="panoEmpty">Загрузите equirectangular панораму</div>
+        </div>
+      </div>
+      <div id="panoBar" class="hide row">
+        <select id="panoSelect" class="btn" style="min-width:120px"></select>
+        <select id="aspectSelect" class="btn">
+          <option value="16:9">16:9</option><option value="1:1">1:1</option><option value="9:16">9:16</option>
+          <option value="4:5">4:5</option><option value="5:4">5:4</option><option value="4:3">4:3</option><option value="21:9">21:9</option>
+        </select>
+        <span class="stat" id="panoStat">yaw 0</span>
+      </div>
+      <div id="imageBar" class="hide row">
+        <select id="imageSelect" class="btn" style="min-width:120px"></select>
+        <select id="aspectSelectImage" class="btn">
+          <option value="16:9">16:9</option><option value="1:1">1:1</option><option value="9:16">9:16</option>
+          <option value="4:5">4:5</option><option value="5:4">5:4</option><option value="4:3">4:3</option><option value="21:9">21:9</option>
+        </select>
+        <button class="btn" id="btnImageReset" type="button">Reset view</button>
+        <span class="stat" id="imageStat">zoom 1.00</span>
+      </div>
+      <div id="galleryWrap">
+        <div id="galTop" class="row">
+          <strong style="font-size:12px;opacity:.75">Галерея</strong>
+          <div class="mdd" id="galTagFilter"></div>
+          <label class="row" style="gap:4px;margin-left:auto">Scale <input id="galScale" type="range" min="64" max="220" value="110" style="width:90px" /></label>
+          <span class="stat" id="galCount">0</span>
+        </div>
+        <div id="galFolders"></div>
+        <div id="galScroll"><div id="galGrid"></div></div>
+      </div>
+      <div id="templatesWrap" class="hide">
+        <div id="tplTop" class="row">
+          <strong style="font-size:12px;opacity:.75">Template Library</strong>
+          <button class="btn primary" id="tplAddBtn" type="button">+</button>
+          <div class="mdd" id="tplStyleFilter"></div>
+          <div class="mdd" id="tplGroupFilter"></div>
+          <div class="mdd" id="tplTagFilter"></div>
+          <div class="mdd" id="tplAspectFilter"></div>
+          <button class="btn" id="tplTagsToggle" type="button">Теги</button>
+          <input id="tplSearch" class="btn" type="search" placeholder="Поиск шаблона / тега" style="flex:1;min-width:170px" />
+          <span class="stat" id="tplCount">0</span>
+        </div>
+        <div id="tplScroll"><div id="tplGrid"></div></div>
+        <div id="tplBottom" class="row">
+          <span class="stat" id="tplHint">click = select · ctrl = replace · alt / ctrl+shift = insert</span>
+          <div class="tplCols row">
+            <button class="btn tplColBtn" type="button" data-cols="1">1 col</button>
+            <button class="btn tplColBtn" type="button" data-cols="2">2 col</button>
+            <button class="btn tplColBtn" type="button" data-cols="3">3 col</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="splitter"></div>
+    <div id="rightZone">
+      <div id="monWrap"><div id="monBox"><div id="monTemplateMainLayer"><div id="monTemplateMainStage"></div></div><canvas id="monCanvas"></canvas><div id="monTemplateOverlayLayer"><div id="monTemplateOverlayStage"></div></div><div id="monEmpty">Таймлайн пуст</div></div></div>
+      <div id="monBar" class="row"><span class="stat" id="monStat">monitor</span></div>
+    </div>
+  </div>
+</div>
+<div id="bottom">
+  <div id="tlHead">
+    <div class="stat" id="tlInfo">таймлайн</div>
+    <div class="row">
+      <button class="btn" id="btnPrev" type="button">◀</button>
+      <button class="btn" id="btnNext" type="button">▶</button>
+      <label class="row" style="gap:4px">FPS <input id="fps" class="btn" type="number" min="1" max="60" value="30" style="width:52px" /></label>
+      <label class="row" style="gap:4px">Zoom <input id="tlZoom" type="range" min="2" max="40" value="8" style="width:90px" /></label>
+    </div>
+  </div>
+  <div id="tlScroll"><div id="tl">
+    <div id="tlRuler"></div><div id="tlLanes">main<br>overlay<br>audio</div>
+    <div id="tlVoid"></div><div id="tlTrack"></div><div id="tlPlayhead"></div>
+  </div></div>
+  <div id="audioRow" class="row">
+    <strong style="font-size:11px;opacity:.7">Audio</strong>
+    <label class="btn" for="fileAudio">+ Звук</label><input id="fileAudio" class="file" type="file" accept="audio/*" />
+    <span class="stat" id="audioName">нет</span>
+    <button class="btn" id="btnAudioMute" type="button">Mute</button>
+    <button class="btn danger" id="btnAudioDel" type="button">×</button>
+    <audio id="audioEl" preload="auto"></audio>
+  </div>
+</div>
+</div>
+<div id="tplAddModal" class="modal">
+  <div class="modalPanel">
+    <div class="modalHead row"><strong>Добавить шаблон в user.js</strong><button class="btn" id="tplAddClose" type="button">×</button></div>
+    <div class="field"><span>JSON шаблона</span><textarea id="tplAddJson" rows="14" class="monoArea" placeholder="Вставь JSON шаблона или массив шаблонов"></textarea></div>
+    <div class="grid2"><div class="field"><span>Внутренняя группа</span><select id="tplAddGroup"></select></div><div class="field"><span>Внутренний стиль</span><select id="tplAddStyle"></select></div></div>
+    <div class="row" style="flex-wrap:wrap"><button class="btn" id="tplAddValidate" type="button">Проверить JSON</button><button class="btn primary" id="tplAddConfirm" type="button">Добавить в user.js</button></div>
+    <pre id="tplAddPreview" class="modalPre"></pre>
+  </div>
+</div>
+<div id="tplStyleMgrModal" class="modal">
+  <div class="modalPanel modalWide">
+    <div class="modalHead row"><strong>Менеджер стилей</strong><button class="btn" id="tplStyleMgrClose" type="button">×</button></div>
+    <div class="grid2">
+      <div>
+        <div class="inspTitle">Группы</div>
+        <div class="row" style="margin-bottom:8px"><input id="tplStyleMgrNewGroup" type="text" class="btn" style="flex:1" placeholder="новая группа" /><button class="btn" id="tplStyleMgrAddGroup" type="button">+</button></div>
+        <div id="tplStyleMgrGroups" class="mgrList"></div>
+      </div>
+      <div>
+        <div class="inspTitle">Стили</div>
+        <div class="row" style="margin-bottom:8px"><input id="tplStyleMgrNewStyle" type="text" class="btn" style="flex:1" placeholder="новый стиль" /><button class="btn" id="tplStyleMgrAddStyle" type="button">+</button></div>
+        <div id="tplStyleMgrStyles" class="mgrList"></div>
+      </div>
+    </div>
+    <div class="inspMeta">Внутренние группы и стили приложения независимы от полей group/style/styleSystem внутри JSON шаблонов.</div>
+  </div>
+</div>
+<script src="js/adaptation/recompose-core.js"></script>
+<script src="adaptation-modules/manifest.js"></script>
+<script src="js/adaptation/adaptation-loader.js"></script>
+<script src="js/adaptation/pano-adaptation.js"></script>
+<script src="js/templates/template-library-merge.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/core/history.js"></script>
+<script src="js/gallery/assets-gallery.js"></script>
+<script src="js/templates/template-library-adapter.js"></script>
+<script src="js/templates/template-browser.js"></script>
+<script src="js/templates/template-instance.js"></script>
+<script src="js/viewers/pano-viewer.js"></script>
+<script src="js/viewers/image-viewer.js"></script>
+<script src="js/timeline/timeline.js"></script>
+<script src="js/monitor/monitor-renderer.js"></script>
+<script src="js/ui/layout.js"></script>
+<script src="js/export/export-premiere.js"></script>
+<script src="js/export/export-ae.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
