@@ -10,7 +10,7 @@
    • несколько шаблонов: метод применяется к каждому отдельно, сводка
      (обработано / ок / предупреждения / ошибки) и статус по каждому;
    • «Создать дубликат(ы)» — действие по умолчанию; исходники не меняются;
-   • «Применить к исходным» — только после подтверждения, откатывается Ctrl+Z.
+   • «Применить к текущему» — только после подтверждения, откатывается Ctrl+Z.
    Методы — переключатели: первый клик включает метод и показывает результат
    в рабочей области (и на карте); повторный клик выключает превью и возвращает
    исходный вид. Результат всегда считается из исходного шаблона (кэш по хэшу
@@ -67,6 +67,21 @@ function rcInstallStyle(){
 .rc-lbl{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#8b93a1;min-width:0}
 .rc-sel{width:100%;min-width:0;box-sizing:border-box;background:#15181f;color:#e6e9ef;border:1px solid #2a2f3a;border-radius:6px;padding:5px 6px;font-size:12px;text-overflow:ellipsis}
 .rc-sel:disabled{opacity:.5}
+/* Единый стиль переключателей: соотношения сторон, методы и «Выкл.» — одинаковая высота, текст, отступы,
+   рамка, закругление, наведение и выбор. Активный — синий акцент с белым текстом. */
+.rc-fmt-row,.rc-caps{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
+.rc-fmt-row{margin-bottom:8px}
+.rc-fmt,.rc-cap{box-sizing:border-box;height:24px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #2a2f3a;background:#15181f;color:#b8c0cc;border-radius:999px;padding:0 10px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:11px;font-weight:600;letter-spacing:.2px;cursor:pointer;white-space:nowrap}
+.rc-fmt:hover,.rc-cap:hover{border-color:#4a5263;color:#e6e9ef}
+.rc-fmt.on,.rc-cap.on{background:#3a6bff;border-color:#3a6bff;color:#fff}
+.rc-fmt:focus-visible,.rc-cap:focus-visible{outline:2px solid #8fb3ff;outline-offset:1px}
+.rc-caps-head{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#8b93a1;margin:2px 0 4px}
+.rc-caps{min-height:24px}
+.rc-cap.bad{opacity:.45;text-decoration:line-through}
+.rc-mhelp-fixed{min-height:30px}
+.rc-acts-top{margin-top:6px;margin-bottom:6px}
+.rc-modiag{margin-top:8px;font-size:11px;color:#8b93a1}
+.rc-modiag .bad{color:#ff9ca5}
 .rc-mhelp{color:#8b93a1;font-size:11px;line-height:1.4}
 .rc-prev{width:100%;border:1px solid #2a2f3a;border-radius:6px;background:#0c0e12;overflow:hidden}
 .rc-empty{padding:18px 10px;color:#8b93a1;text-align:center;border:1px dashed #2a2f3a;border-radius:6px;font-size:11px}
@@ -108,7 +123,7 @@ function rcOriginHtml(id){
   return String(t.recompose_orig!=null ? t.recompose_orig : (t.html||''));
 }
 function rcSrcHash(id){ return rcHash(rcOriginHtml(id)); }
-function rcKey(id,m){ return id+'|'+m+'|'+rcSrcHash(id)+'|'+rcFmt(); }
+function rcKey(id,m,fmt){ return id+'|'+m+'|'+rcSrcHash(id)+'|'+(fmt||rcFmt()); }
 // Подпись методов для интерфейса: название из модуля (если модуль не загружен — из прежней таблицы)
 function rcLabel(m){ const d=window.RecomposeCore.adaptation.get(m); return d?d.name:(METHOD_LABEL[m]||m||''); }
 function rcReliable(id){
@@ -116,11 +131,12 @@ function rcReliable(id){
   return /sv-section/.test(h) && /data-sb-editable/.test(h);
 }
 // Очередь: конвертации идут по одной, ошибка одного шаблона не останавливает очередь
-function rcRun(id,m){
-  const key=rcKey(id,m);
+function rcRun(id,m,fmt){
+  fmt=fmt||rcFmt();              // явный формат (пересоздание сохранённой конверсии) или текущий UI
+  const key=rcKey(id,m,fmt);
   if(RC.cache.has(key)) return Promise.resolve(RC.cache.get(key));
   const snap={tpl:id, label:(LIB[id]||{}).label, html:rcOriginHtml(id)};
-  const job=RC.queue.then(()=>window.RecomposeCore.convert(snap,m,{format:rcFmt()}));
+  const job=RC.queue.then(()=>window.RecomposeCore.convert(snap,m,{format:fmt}));
   RC.queue=job.catch(()=>{});
   return job.then(r=>{ RC.cache.set(key,r); return r; }).catch(e=>{
     const r={status:'failed', ok:false, error:String(e&&e.message||e), reasons:['ошибка: '+(e&&e.message||e)], warnings:[], notes:[], overflow:[], diagnostics:{}, structure:{preserved:false,diffs:[]}, bounds:{inside:false,overflowCount:0}, fit:{factor:1,steps:0}, html:''};
@@ -210,6 +226,14 @@ function rcKv(rows){ return `<div class="rc-kv">${rows.map(([k,v])=>`<span>${rcE
 
 // Ctrl+колесо по селектору: один шаг на щелчок, без пропусков; отключённые пункты пропускаются (как в Pano).
 const RC_WHEEL={ threshold:60, lockMs:160, idleMs:260 };
+// Диагностика: модули, которые не загрузились или не прошли проверку, видны явно (а не скрыты)
+function rcModulesDiag(){
+  const A=window.RecomposeCore.adaptation;
+  const errs=(A.errors()||[]).map(e=>({name:e.id||'модуль', errors:e.errors||[]}))
+    .concat(((window.RC_ADAPT_LOAD&&RC_ADAPT_LOAD.errors)||[]).map(e=>({name:e.file||'файл', errors:e.errors||[]})));
+  const ok=A.ids().length;
+  return `<div class="rc-modiag"><details${errs.length?' open':''}><summary>Модули адаптации: доступно ${ok}${errs.length?` · с ошибками ${errs.length}`:''}</summary>${errs.length?errs.map(e=>`<div class="bad">• ${rcEsc(e.name)}: ${rcEsc(e.errors.join('; '))}</div>`).join(''):'<div>Ошибок загрузки нет.</div>'}</details></div>`;
+}
 function rcBindWheel(sel){
   let acc=0, lastDir=0, lockUntil=0, lastEvent=0;
   sel.addEventListener('wheel', e=>{
@@ -252,15 +276,36 @@ function rcRender(){
     const cnt={}; ids.forEach(id=>{const x=window.RecomposeCore.recommend(LIB[id]).method; cnt[x]=(cnt[x]||0)+1;});
     h+=`<div class="rc-rec">Рекомендации по выбранным: ${Object.entries(cnt).map(([k,v])=>`${k} ×${v}`).join(', ')}<div class="rc-why">Метод применяется к каждому шаблону отдельно. Выбранный ниже метод — общий для пакета.</div></div>`;
   }
-  // формат и метод: два связанных списка; методы — только доступные для формата и приложения
+  // формат — отдельный переключатель (реестр SB_FORMATS → RecomposeCore.FORMATS);
+  // методы — капсулы: только модули, реально загруженные и совместимые с форматом источника и целевым
   const A=window.RecomposeCore.adaptation, app=A.getApp();
-  const avail=A.list(rcFmt(), app);
+  const fmts=window.RecomposeCore.listFormats();
+  h+=`<div class="rc-fmt-row" role="group" aria-label="Соотношение сторон">${fmts.map(f=>`<button type="button" class="rc-fmt${f.id===rcFmt()?' on':''}" data-rc-fmt="${rcEsc(f.id)}" title="${rcEsc(f.label)} · ${f.w}×${f.h}${f.validated?'':' · методы не проверены'}">${rcEsc(f.id)}</button>`).join('')}</div>`;
+  const src=rcSrcFmt();
+  const avail=rcAvail(rcFmt());
   if(!multi) rcProbe(first.id, avail);      // статусы методов для шаблона: failed видно до выбора
   const cur=m?A.get(m):null;
-  h+=`<div class="rc-sel-row"><label class="rc-lbl">Формат<select class="rc-sel" data-rc-format>${window.RecomposeCore.listFormats().map(f=>`<option value="${rcEsc(f.id)}"${f.id===rcFmt()?' selected':''}>${rcEsc(f.label)} · ${f.w}×${f.h}${f.validated?'':' · не проверен'}</option>`).join('')}</select></label>`;
-  h+=`<label class="rc-lbl">Метод адаптации<select class="rc-sel" data-rc-method${avail.length?'':' disabled'}><option value="">— выключено —</option>${avail.map(d=>{const bad=!multi&&rcIsFailed(first.id,d.id); return `<option value="${rcEsc(d.id)}"${d.id===m?' selected':''}${bad?' disabled':''}>${rcEsc(d.name)}${bad?' · failed (не применимо)':''}</option>`;}).join('')}</select></label></div>`;
-  if(!avail.length) h+=`<div class="rc-mhelp">Для формата ${rcEsc(rcFmt())} в приложении «${rcEsc(app)}» методов нет.</div>`;
-  h+=`<div class="rc-mhelp">${cur?rcEsc(cur.description):'Метод не выбран: выбор метода включит превью в рабочей области, «— выключено —» вернёт исходный вид.'}</div>`;
+  h+=`<div class="rc-caps-head">Метод адаптации · ${rcEsc(src.id||'?')} → ${rcEsc(rcFmt())}</div>`;
+  h+=`<div class="rc-caps" data-rc-caps><button type="button" class="rc-cap rc-cap-off${!m?' on':''}" data-rc-cap="" title="Метод не выбран: превью выключено">Выкл</button>`;
+  avail.forEach(d=>{ const bad=!multi&&rcIsFailed(first.id,d.id);
+    h+=`<button type="button" class="rc-cap${d.id===m?' on':''}${bad?' bad':''}" data-rc-cap="${rcEsc(d.id)}" title="${rcEsc((rcShort(d.id))+' · '+(d.name||d.id))}${d.description?' — '+rcEsc(d.description):''}${bad?' · ошибка для этого шаблона':''}">${rcEsc(rcShort(d.id))}</button>`; });
+  h+=`</div>`;
+  // действия — сразу под капсулами (панель стабильна: позиция не зависит от шаблона)
+  const anyOk=results.some(x=>x.r && x.r.html && x.r.status!=='failed');
+  h+=`<div class="rc-acts rc-acts-top">`;
+  h+=`<button class="rc-btn primary" data-rc-act="run" ${(RC.pending.size||!RC.method)?'disabled':''}>${multi?'Конвертировать все':(first.r?'Пересчитать':'Конвертировать')}</button>`;
+  h+=`<button class="rc-btn dup" data-rc-act="dup" ${anyOk?'':'disabled'} title="Создаёт новые шаблоны; исходники не меняются">Создать дубликат${multi?'ы':''}</button>`;
+  h+=`<button class="rc-btn warn" data-rc-act="apply" ${anyOk?'':'disabled'} title="Заменяет HTML выбранных шаблонов после подтверждения; откат — Ctrl+Z">Применить к текущему</button>`;
+  h+=`</div>`;
+  if(!avail.length){
+    const why = src.known ? `Для источника ${rcEsc(src.id)} → ${rcEsc(rcFmt())} в приложении «${rcEsc(app)}» нет модулей: в module.json должны быть совпадающие sourceFormats и targetFormats.`
+                          : `Формат источника не определён: совместимость методов не проверена. Измерьте шаблон (кнопка замера) или задайте aspect.`;
+    h+=`<div class="rc-mhelp">${why}</div>`;
+  } else if(!src.known) {
+    h+=`<div class="rc-mhelp">Формат источника не определён: методы показаны по умолчанию (16:9). Проверьте результат визуально.</div>`;
+  }
+  h+=`<div class="rc-mhelp rc-mhelp-fixed">${cur?rcEsc((rcShort(cur.id))+' · '+(cur.name||cur.id)+(cur.description?' — '+cur.description:'')):'Метод не выбран. Выбор метода включает превью в рабочей области; «Выкл» вернёт исходный вид. Сохранение не происходит.'}</div>`;
+  h+=rcModulesDiag();
   // результат
   if(!multi){
     const r=first.r;
@@ -293,21 +338,14 @@ function rcRender(){
     h+=`<div class="rc-sec">Предупреждения</div>${rcList(first.r.warnings,'warn')}`;
     h+=`<div class="rc-sec">Причины и замечания</div>${rcList([...(first.r.reasons||[]),...(first.r.notes||[])])}`;
   }
-  // действия
-  const anyOk=results.some(x=>x.r && x.r.html && x.r.status!=='failed');
-  h+=`<div class="rc-sec">Действия</div><div class="rc-acts">`;
-  h+=`<button class="rc-btn primary" data-rc-act="run" ${(RC.pending.size||!RC.method)?'disabled':''}>${multi?'Конвертировать все':(first.r?'Пересчитать':'Конвертировать')}</button>`;
-  h+=`<button class="rc-btn dup" data-rc-act="dup" ${anyOk?'':'disabled'} title="Создаёт новые шаблоны; исходники не меняются">Создать дубликат${multi?'ы':''}</button>`;
-  h+=`<button class="rc-btn warn" data-rc-act="apply" ${anyOk?'':'disabled'} title="Заменяет HTML исходных шаблонов; откат — Ctrl+Z">Применить к исходным…</button>`;
   h+=`</div>`;
   h+=`</div></details>`;
   box.innerHTML=h;
   // события
   const det=box.querySelector('details');
   det.addEventListener('toggle',()=>{ RC.open=det.open; });
-  const fsel=box.querySelector('[data-rc-format]'); if(fsel) fsel.onchange=()=>rcSetFormat(fsel.value);
-  const msel=box.querySelector('[data-rc-method]'); if(msel) msel.onchange=()=>rcSetMethod(msel.value||null);
-  if(fsel) rcBindWheel(fsel); if(msel) rcBindWheel(msel);   // Ctrl+колесо: пошаговый выбор (как в Pano)
+  box.querySelectorAll('[data-rc-fmt]').forEach(b=>b.onclick=()=>rcSetFormat(b.getAttribute('data-rc-fmt')));
+  box.querySelectorAll('[data-rc-cap]').forEach(b=>b.onclick=()=>rcSetMethod(b.getAttribute('data-rc-cap')||null));
   box.querySelectorAll('[data-rc-act]').forEach(b=>b.onclick=()=>rcAction(b.getAttribute('data-rc-act')));
 }
 
@@ -326,11 +364,43 @@ async function rcAutoRun(ids,m){
   }
 }
 // Выбор метода в списке: пустое значение выключает превью (исходный вид); недоступный для формата метод игнорируется.
+/* Короткие обозначения методов (стабильные; внутренние ID модулей не меняются).
+   Новый модуль без записи получает обозначение «XX-?» — значит, его нужно добавить в таблицу. */
+const RC_SHORT_CODES={
+  'claud1-balanced':'CL-001','claud1-editorial':'CL-002','claud1-typographic':'CL-003',
+  'gemini-balanced':'GM-001','gemini-editorial':'GM-002','gemini-hero-media':'GM-003','gemini-media-grid':'GM-004','gemini-typographic':'GM-005',
+  'grok-balanced':'GR-001','grok-editorial':'GR-002','grok-hero':'GR-003',
+  'iface-smart':'IF-001','iface-split':'IF-002',
+  'v3011-hero':'V3-001','v3011-type':'V3-002',
+  'compact':'CP-001','fit':'FT-001','smart':'SM-001','split':'SP-001'
+};
+function rcShort(id){
+  if(RC_SHORT_CODES[id]) return RC_SHORT_CODES[id];
+  const pre=String(id||'').replace(/[^a-z0-9]/gi,'').slice(0,2).toUpperCase();
+  return (pre||'XX')+'-?';
+}
+/* Формат источника выбранного шаблона: известный (aspect / измеренный) или null.
+   Возвращает {id, known}. Неизвестный — методы показываются по умолчанию, с пометкой. */
+function rcSrcFmt(){
+  const t=LIB[rcSelIds()[0]];
+  const known=new Set(window.RecomposeCore.listFormats().map(f=>f.id));
+  if(t && t.aspect && known.has(t.aspect)) return {id:t.aspect, known:true};
+  const real=(t && typeof realFormatOf==='function') ? realFormatOf(t) : null;
+  if(real && known.has(real)) return {id:real, known:true};
+  return {id:null, known:false};
+}
+/* Доступные методы: модули, загруженные и совместимые с ИСТОЧНИКОМ и ЦЕЛЕВЫМ форматом (+ приложение). */
+function rcAvail(target){
+  const A=window.RecomposeCore.adaptation, src=rcSrcFmt();
+  // формат источника неизвестен — совместимость не доказана: методы не предлагаем (без подстановки 16:9)
+  if(!src.known) return [];
+  return A.list(target, A.getApp(), src.id);
+}
 function rcSetMethod(m){
   const A=window.RecomposeCore.adaptation;
   const sel=rcSelIds()[0];
   if(m && sel && rcIsFailed(sel,m)) return;   // failed в выборе не участвует
-  if(m && !A.list(rcFmt(),A.getApp()).some(d=>d.id===m)) return;
+  if(m && !rcAvail(rcFmt()).some(d=>d.id===m)) return;
   if(!m || RC.method===m){
     RC.method=null; RC.gen++;
     rcRestoreStage();
@@ -346,7 +416,7 @@ function rcSetFormat(f){
   const A=window.RecomposeCore.adaptation;
   if(f===rcFmt() || !window.RecomposeCore.listFormats().some(x=>x.id===f)) return;
   RC.format=f;
-  if(RC.method && !A.list(f,A.getApp()).some(d=>d.id===RC.method)){
+  if(RC.method && !rcAvail(f).some(d=>d.id===RC.method)){
     RC.method=null; RC.gen++;
     rcRestoreStage();
     rcRefresh();
@@ -436,19 +506,23 @@ window.RC_viewMarkup=function(id){
 // Поля кадра. canvas — эталонный холст Frame Contract (1920×1080), как требует контракт и импорт.
 // frameContract — та же строка, что пишет импорт (tpl2.frameContract = normalizedFrame.contract).
 // recomposeFrame — рабочий кадр движка 1600×900; новое поле, существующие не меняются.
-function rcFrameFields(){
-  const info = window.SB_FRAME_CONTRACT && SB_FRAME_CONTRACT.info ? SB_FRAME_CONTRACT.info(rcFmt()) : null;
+// Рабочий кадр выбранного формата из реестра движка (16:9 → 1600×900, 9:16 → 900×1600 и т.д.)
+function RC_FMT_WH(){ const f=(window.RecomposeCore.FORMATS||{})[rcFmt()]||(window.RecomposeCore.FORMATS||{})['16:9']; return {w:f.w, h:f.h}; }
+function rcFrameFields(fmt){
+  fmt=fmt||rcFmt();
+  const info = window.SB_FRAME_CONTRACT && SB_FRAME_CONTRACT.info ? SB_FRAME_CONTRACT.info(fmt) : null;
   const c = (info && info.canvas) || {width:1920,height:1080};
-  return { aspect:rcFmt(), canvas:{width:c.width,height:c.height}, frameContract:'sandbox-frame-v1',
-           recomposeFrame:{ w:1600, h:900, algo:window.RecomposeCore.ALGO } };
+  const wh=(window.RecomposeCore.FORMATS||{})[fmt]||RC_FMT_WH();
+  return { aspect:fmt, canvas:{width:c.width,height:c.height}, frameContract:'sandbox-frame-v1',
+           recomposeFrame:{ w:wh.w, h:wh.h, algo:window.RecomposeCore.ALGO } };
 }
-function rcMeta(srcId, srcHash, r, m){
+function rcMeta(srcId, srcHash, r, m, fmt){
   const d=r.diagnostics||{};
   // Происхождение (аддитивно): родитель, исходная база, вход шага и хеш результата.
   // Существующие поля sourceTpl/sourceHash/method/format не меняют смысл.
   const prev=(LIB[srcId]&&LIB[srcId].recompose)||null;
   const baseTpl=(prev&&typeof prev.baseTpl==='string'&&prev.baseTpl)||srcId;
-  return { sourceTpl:srcId, sourceHash:srcHash, method:m, format:rcFmt(), algo:window.RecomposeCore.ALGO,
+  return { sourceTpl:srcId, sourceHash:srcHash, method:m, format:fmt||rcFmt(), algo:window.RecomposeCore.ALGO,
            status:r.status, createdAt:new Date().toISOString(), fit:r.fit, handler:r.handler,
            structurePreserved:!!(r.structure&&r.structure.preserved), overflowCount:(r.overflow||[]).length,
            stable:!!d.stable, warnings:r.warnings||[], reasons:r.reasons||[],
@@ -511,10 +585,11 @@ window.RC_remapTplRefs=function(t,map){
   });
 };
 // Создание дубликатов или применение к исходным. Ошибка одного шаблона не останавливает пакет.
-async function rcCreate(ids,m,mode){
-  const report={mode, processed:0, ok:0, warnings:0, failed:0, items:[]};
+async function rcCreate(ids,m,mode,fmtArg){
+  const fmt=fmtArg||rcFmt();
+  const report={mode, format:fmt, processed:0, ok:0, warnings:0, failed:0, items:[]};
   const results=[];
-  for(const id of ids){ results.push([id, await rcRun(id,m)]); }
+  for(const id of ids){ results.push([id, await rcRun(id,m,fmt)]); }
   pushUndo();
   const created=[], changed=[];
   for(const [id,r] of results){
@@ -531,21 +606,23 @@ async function rcCreate(ids,m,mode){
       const src=LIB[id];
       const srcHash=rcSrcHash(id);
       if(mode==='dup'){
-        const uid=makeUniqueTpl(`${id}_r169_${m}`);
+        // ID и название — по формату результата (для 16:9 прежние: _r169_ и «Converted 16:9»)
+        const fslug=String(fmt).replace(/[^0-9a-z]/gi,'');
+        const uid=makeUniqueTpl(`${id}_r${fslug}_${m}`);
         const clone=JSON.parse(JSON.stringify(src));
         clone.tpl=uid;
-        clone.label=`${src.label||id} · Converted 16:9 · ${m}`;
+        clone.label=`${src.label||id} · Converted ${fmt} · ${m}`;
         clone.html=r.html;
         clone.recompose_orig=rcOriginHtml(id);
         if(window.SB_copyImgAssign) window.SB_copyImgAssign(id,uid);
-        Object.assign(clone, rcFrameFields());
+        Object.assign(clone, rcFrameFields(fmt));
         clone.batch=src.batch||null;
         // Поля, относящиеся к исходной раскладке, в копии не переносятся (как в предыдущей версии конвертера)
         if(Object.prototype.hasOwnProperty.call(clone,'motion')) delete clone.motion;
         if(Object.prototype.hasOwnProperty.call(clone,'entities') && !Array.isArray(src.entities)) delete clone.entities;
-        clone.recompose=rcMeta(id,srcHash,r,m);
+        clone.recompose=rcMeta(id,srcHash,r,m,fmt);
         LIB[uid]=clone;
-        if(window.SB_recordConversion) window.SB_recordConversion(uid, src, rcFmt(), {method:m});
+        if(window.SB_recordConversion) window.SB_recordConversion(uid, src, fmt, {method:m});
         created.push(uid); checked.add(uid);
       } else {
         // предыдущие значения сохраняем в метаданных; откат — Ctrl+Z (снимок LIB)
@@ -553,8 +630,8 @@ async function rcCreate(ids,m,mode){
                               frameContract: src.frameContract===undefined?null:src.frameContract};
         src.recompose_orig=rcOriginHtml(id);
         src.html=r.html;
-        Object.assign(src, rcFrameFields());
-        src.recompose=rcMeta(id,srcHash,r,m);
+        Object.assign(src, rcFrameFields(fmt));
+        src.recompose=rcMeta(id,srcHash,r,m,fmt);
         src.recompose.appliedToOriginal=true;
         changed.push(id);
       }
@@ -571,12 +648,14 @@ async function rcCreate(ids,m,mode){
   if(mode==='apply' && selectedId && LIB[selectedId]) selectTpl(selectedId,true);
   rcRender();
   toast(`${mode==='dup'?'Дубликаты':'Применено'}: обработано ${report.processed}, ок ${report.ok}, предупреждения ${report.warnings}, ошибки ${report.failed}`);
+  report.created=created.slice();   // ID созданных шаблонов (для отчёта пересоздания)
+  report.changed=changed.slice();
   return report;
 }
 function rcConfirm(text){
   return new Promise(res=>{
     const ov=document.createElement('div'); ov.id='rcConfirm';
-    ov.innerHTML=`<div class="rc-dlg"><h3>Применить к исходным?</h3><p>${rcEsc(text)}</p><p style="color:#8b93a1">Исходный HTML будет заменён. Откат — Ctrl+Z.</p><div class="rc-acts"><button class="rc-btn" data-c="0">Отмена</button><button class="rc-btn warn" data-c="1">Применить</button></div></div>`;
+    ov.innerHTML=`<div class="rc-dlg"><h3>Применить к текущему?</h3><p>${rcEsc(text)}</p><p style="color:#8b93a1">HTML выбранных шаблонов будет заменён. Откат — Ctrl+Z.</p><div class="rc-acts"><button class="rc-btn" data-c="0">Отмена</button><button class="rc-btn warn" data-c="1">Применить</button></div></div>`;
     ov.addEventListener('mousedown',e=>{ if(e.target===ov){ ov.remove(); res(false); } });
     ov.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ ov.remove(); res(b.dataset.c==='1'); });
     document.body.appendChild(ov);
@@ -615,11 +694,49 @@ if(typeof _rbb==='function'){
   window.renderBulkBar=function(){ const r=_rbb.apply(this,arguments); try{ RC_mount(); }catch(e){ console.warn('Recompose:',e); } return r; };
 }
 // Пересоздание версий, устаревших по данным этапа 2 (вместо старого конвертера)
+// Пересоздание устаревшей конверсии: формат и метод — СОХРАНЁННЫЕ в S2_CONV, не текущий UI.
+// Создаётся новый шаблон; исходник и существующая конверсия не меняются.
+/* Обновление устаревшей конверсии НА МЕСТЕ (ТЗ fix2 п.2.1).
+   Формат и метод берутся только из S2_CONV[id]; исходник не меняется; запись сохраняет tpl, label,
+   группу, стили, прогон, favorite и остальные связи. Новый шаблон не создаётся. Откат — Undo.
+   Возвращает {ok, reason, id, format, method, report}. */
 window.RC_recreateOutdated=async function(id){
-  const c=(window.S2_CONV||{})[id];
-  if(!c || !LIB[c.src]){ toast('Нет данных о конвертации'); return; }
-  const m=c.method||'smart';
-  await rcCreate([c.src], m, 'dup');
+  const c=(S2_CONV||{})[id];
+  const refuse=(why)=>{ return {ok:false, id, reason:why}; };
+  if(!c || !LIB[c.src]) return refuse('Исходник конверсии не найден: обновление невозможно');
+  if(!LIB[id]) return refuse('Запись не найдена');
+  const fmt=c.aspect;
+  const known=(window.RecomposeCore.listFormats()||[]).some(f=>f.id===fmt);
+  if(!fmt || !known) return refuse('Формат сохранённой конверсии не определён или не зарегистрирован — обновление не выполнено');
+  const m=c.method;
+  if(!m) return refuse('Метод сохранённой конверсии не записан — обновление не выполнено (выберите метод вручную)');
+  const mod=window.RecomposeCore.adaptation.get(m);
+  if(!mod || !(mod.targetFormats||[]).includes(fmt)) return refuse(`Метод «${m}» не поддерживает формат ${fmt} — обновление не выполнено`);
+  const srcId=c.src, src=LIB[srcId];
+  const r=await rcRun(srcId, m, fmt);
+  if(!r || r.status==='failed' || !r.html) return refuse('Конвертация не выполнена: '+((r&&(r.error||(r.reasons||[])[0]))||'нет результата'));
+  const cur=LIB[id];
+  const cand=JSON.parse(JSON.stringify(cur));      // tpl, label, group, styleSystem(s), batch, favorite, связи — сохраняются
+  cand.tpl=id;
+  cand.html=r.html;
+  cand.recompose_orig=rcOriginHtml(srcId);
+  Object.assign(cand, rcFrameFields(fmt));
+  if(Object.prototype.hasOwnProperty.call(cand,'motion')) delete cand.motion;     // как при создании конверсии: раскладка пересчитывается на экспорте
+  if(Object.prototype.hasOwnProperty.call(cand,'entities') && !Array.isArray(src.entities)) delete cand.entities;
+  cand.recompose=rcMeta(srcId, rcSrcHash(srcId), r, m, fmt);
+  // сохранность слотов и маркеров (п.2.3) и число управляемых элементов не уменьшается
+  if(window.SB_slotCheck){
+    const sc=window.SB_slotCheck(cur.html, cand.html);
+    if(!sc.ok) return refuse('Обновление отклонено — нарушена разметка слотов: '+[sc.missing.length?'отсутствуют '+sc.missing.join(', '):'', sc.changed.length?'потеряна разметка '+sc.changed.join(', '):''].filter(Boolean).join('; '));
+  }
+  const cnt=(h)=>{ const d=new DOMParser().parseFromString(String(h||''),'text/html').body; return d.querySelectorAll('[data-sb-editable]').length; };
+  if(cnt(cand.html) < cnt(cur.html)) return refuse(`Обновление отклонено — текстовых элементов стало меньше (${cnt(cur.html)} → ${cnt(cand.html)})`);
+  pushUndo();
+  LIB[id]=cand;
+  if(window.SB_recordConversion) window.SB_recordConversion(id, src, fmt, {method:m});   // связь: новый srcHash, формат и метод
+  store.save(); store.saveBatches();
+  if(window.SB_libraryAudit) window.SB_libraryAudit.invalidate(id);
+  return {ok:true, id, format:fmt, method:m, report:{updated:[id], format:fmt, method:m}};
 };
 /* ---------- внешние модули адаптации (манифест Electron: папка adaptation-modules) ----------
    Порядок: общие библиотеки («_»), затем код каждого модуля и регистрация по его module.json.
@@ -663,3 +780,68 @@ window.addEventListener('sb-manifest', rcOnManifest);
 rcOnManifest();
 window.RC_state=RC;
 })();
+
+/* ---- масштаб кадров и вписывание портретного предпросмотра ----
+   Масштаб сцены считается по фактической ширине кадра (не через calc в transform:
+   старые Chromium/Electron его не понимают и откатываются к неверному масштабу). */
+(function(){
+  function fitStage(frame){
+    const st=frame.querySelector(':scope > .rc-stage');
+    if(!st) return;
+    const base=parseFloat(st.style.width);
+    if(!base || !frame.clientWidth) return;
+    st.style.transform='scale('+(frame.clientWidth/base)+')';
+  }
+  const ro=('ResizeObserver' in window) ? new ResizeObserver(en=>en.forEach(e=>fitStage(e.target))) : null;
+  function watch(root){
+    if(!root) return;
+    root.querySelectorAll('.rc-frame').forEach(f=>{
+      if(ro && !f.__rcObs){ f.__rcObs=true; ro.observe(f); }
+      fitStage(f);
+    });
+  }
+  const sw=document.getElementById('stageWrap');
+  const pvEl=()=>document.getElementById('preview'), galEl=()=>document.getElementById('galRoot');
+  // портретный кадр (h > w) в «Один» вписывается по высоте окна
+  function fitPortrait(){
+    const pv=pvEl();
+    const f=pv && pv.querySelector('.rc-frame');
+    const m=f && /([\d.]+)\s*\/\s*([\d.]+)/.exec(f.style.aspectRatio||'');
+    if(!sw) return;
+    if(!m || !(+m[2] > +m[1])){ sw.style.maxWidth=''; return; }
+    const top=sw.getBoundingClientRect().top;
+    const avail=Math.max(200, window.innerHeight-top-16);
+    sw.style.maxWidth=Math.floor(avail*(+m[1])/(+m[2]))+'px';
+  }
+  function all(){ watch(pvEl()); watch(galEl()); fitPortrait(); }
+  // галерея создаётся позже загрузки, поэтому следим за всем документом
+  new MutationObserver(all).observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('resize',all);
+  all();
+})();
+
+/* Единый реестр форматов: источник правды — window.SB_FORMATS (Sandbox_Content.html).
+   Записи, которых ещё нет в RecomposeCore.FORMATS, регистрируются через registerFormat.
+   Существующие записи (16:9, 9:16, 1:1, 4:3 с рабочими размерами) НЕ перезаписываются:
+   геометрия ранее сохранённых шаблонов не меняется. Рабочий кадр нового формата — 1600 по большей стороне. */
+window.SB_syncFormats=function(){
+  // Единый реестр: SB_FORMATS -> RecomposeCore.FORMATS (кэш рабочих кадров). Записи обновляются, второго источника нет.
+  const RC=window.RecomposeCore;
+  if(!RC || !RC.registerFormat) return [];
+  const done=[];
+  (window.SB_FORMATS||[]).forEach(function(f){
+    if(!f || !f.id || !f.ratio || !(f.ratio.w>0) || !(f.ratio.h>0)) return;
+    // рабочий кадр: явный work из реестра; если не задан — по соотношению (длинная сторона 1600)
+    let wk=f.work;
+    if(!wk || !(wk.w>0) || !(wk.h>0)){
+      const r=f.ratio, big=1600;
+      wk={ w: r.w>=r.h ? big : Math.round(big*r.w/r.h), h: r.w>=r.h ? Math.round(big*r.h/r.w) : big };
+    }
+    RC.registerFormat({ id:f.id, label:f.label||f.id, w:wk.w, h:wk.h,
+      previewW:Math.round(wk.w*0.8), previewH:Math.round(wk.h*0.8),
+      contractCanvas:f.contractCanvas||null, validated:!!f.validated });
+    done.push(f.id);
+  });
+  return done;
+};
+window.SB_syncFormats();

@@ -1,0 +1,1157 @@
+{
+  "format": "sandbox-repair-package",
+  "formatVersion": 1,
+  "createdAt": "2026-10-15T11:52:20.802Z",
+  "app": {
+    "name": "Sandbox",
+    "build": "v9"
+  },
+  "task": "Задача: исправить указанные шаблоны Sandbox так, чтобы они корректно адаптировались методами\nRecompose (smart, compact, split, fit) и экспортировались в PMS через librarymotion.js.\nШаблоны — HTML-фрагменты раздела .sv-section с размерами холста из поля canvas/aspect.\n\nТребуется:\n1. Для каждой проблемы из targets[].problems определить причину по HTML и метаданным.\n2. Исправить только необходимые части HTML или метаданных. Не переписывать шаблон целиком,\n   если достаточно локального исправления.\n3. Сохранить идентификаторы (tpl), название (label), группу (group), стили (styleSystem,\n   styleSystems), прогон (batch), ссылки и существующие поля record.\n4. Сохранить исходник и метаданные адаптации (recompose, recompose_orig, recompose_prev,\n   frameContract, recomposeFrame, sourceTpl), когда это возможно.\n5. Сохранить разметку текстовых элементов (data-sb-editable), медиа-слотов (data-sb-media,\n   .sv-media, data-slot) и повторов (data-sb-repeat). Количество таких элементов не уменьшать.\n6. Не вводить новый контракт метаданных: используйте только атрибуты и поля, уже присутствующие в записях.\n7. Не считать исправлением удаление проблемной разметки или превращение композиции в один неразмеченный блок.\n\nФормат ответа: ТОЛЬКО JSON-массив записей шаблонов (объекты в формате targets[].record, с исправлениями).\nБез Markdown, без комментариев вокруг массива, без посторонних объектов. Каждый tpl из expectedTpl — ровно один раз.",
+  "contract": {
+    "summary": "Шаблон Sandbox — запись библиотеки (LIB[tpl]). Ключ — tpl (уникальный ID). HTML — раздел .sv-section.",
+    "markers": {
+      "data-sb-editable": "текстовый управляемый элемент (редактируется в Sandbox и экспортируется в PMS)",
+      "data-sb-media": "медиа-слот (изображение/видео), управляется в Sandbox",
+      ".sv-media": "медиа-контейнер (альтернативная запись медиа-слота)",
+      "data-slot": "имя слота, связывает элемент с блоком на таймлайне PMS и экспортом entities",
+      "data-role": "роль текста: title, statement, subtitle, meta и т. п. (нужна роль-методам smart/split)",
+      "data-kind": "тип блока (static, auto и т. п.)",
+      "data-sb-repeat": "повтор элементов (ряды/сетка)"
+    },
+    "frame": "aspect — код соотношения (16:9, 9:16, 1:1, 4:3, 4:5, 5:6); canvas — холст {width,height}, согласованный с aspect.",
+    "adaptation": "recompose — метаданные последней адаптации; recompose_orig — исходный HTML до адаптации; методы работают с разметкой выше.",
+    "motion": "motion.contract = motion-studio-template-v1; motion.entities — слоты для PMS. Не менять без причины."
+  },
+  "returnFormat": {
+    "type": "json-array",
+    "description": "массив записей шаблонов в формате targets[].record",
+    "rules": [
+      "каждый tpl из expectedTpl ровно один раз",
+      "без лишних tpl",
+      "поля tpl, label, group, styleSystem, styleSystems, batch сохраняются",
+      "html — строка, не пустая",
+      "количество data-sb-editable и медиа-слотов не уменьшается"
+    ]
+  },
+  "expectedTpl": [
+    "statementFullBleed",
+    "directionsStatement",
+    "statementManifest",
+    "contactSplitTwoColumn_r169_smart",
+    "showreelDirectionsList_2_001",
+    "showreelDirectionsFlush_001",
+    "statementManifest_001",
+    "availableNowAgent",
+    "availableNowAgent_r169_compact",
+    "nextTaskPrompt",
+    "nextTaskPrompt_r169_compact",
+    "campaignMoodboardList_2",
+    "adCampaignList_2",
+    "runwayWordmark_2"
+  ],
+  "targets": [
+    {
+      "tpl": "statementFullBleed",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 4,
+        "mediaCount": 0,
+        "formatKnown": true,
+        "htmlHash": "1snjv9x:5956"
+      },
+      "adaptation": {
+        "sourceFormat": "16:9",
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "statementFullBleed",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Заявление — Полноэкранный акцентный манифест",
+        "code": "ST-01",
+        "icon": "◧",
+        "desc": "Инверсная секция на красном фоне с гигантским заявлением по центру и подписью снизу.",
+        "single": false,
+        "kind": "static",
+        "html": "<div class=\"rc-frame\" data-rc-id=\"rc-ca2aed75\" data-rc-format=\"16:9\" style=\"position:relative;width:100%;aspect-ratio:1600/900;overflow:hidden;box-sizing:border-box;container-type:inline-size\"><style>[data-rc-id=\"rc-ca2aed75\"] .rc-stage, [data-rc-id=\"rc-ca2aed75\"] .rc-stage{margin:0!important;padding:0!important;width:1600px!important;min-width:1600px!important;height:900px!important;min-height:900px!important;max-height:900px!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important}[data-rc-id=\"rc-ca2aed75\"] .rc-stage{position:relative!important;--pad:64px!important;overflow:hidden!important;font-family:Arial,sans-serif}[data-rc-id=\"rc-ca2aed75\"] *, [data-rc-id=\"rc-ca2aed75\"] *:before, [data-rc-id=\"rc-ca2aed75\"] *:after{box-sizing:border-box}[data-rc-id=\"rc-ca2aed75\"] .sv-section{position:absolute!important;left:0!important;top:0!important;width:1600px!important;height:900px!important;min-height:0!important;max-height:900px!important;margin:0!important;padding:54px 68px!important;overflow:hidden!important;box-sizing:border-box!important}[data-rc-id=\"rc-ca2aed75\"] .sv-section>.sv-inner{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-height:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner>*{min-width:0!important;max-width:100%!important}[data-rc-id=\"rc-ca2aed75\"] [data-sb-editable], [data-rc-id=\"rc-ca2aed75\"] [data-sb-media], [data-rc-id=\"rc-ca2aed75\"] .sv-media{box-sizing:border-box!important;min-width:0!important}[data-rc-id=\"rc-ca2aed75\"] .sv-media, [data-rc-id=\"rc-ca2aed75\"] [data-sb-media]{max-width:100%!important}[data-rc-id=\"rc-ca2aed75\"] img, [data-rc-id=\"rc-ca2aed75\"] video, [data-rc-id=\"rc-ca2aed75\"] svg{max-width:100%;}[data-rc-id=\"rc-ca2aed75\"] [data-role=\"overline\"], [data-rc-id=\"rc-ca2aed75\"] [data-role=\"label\"], [data-rc-id=\"rc-ca2aed75\"] [data-role=\"smallMeta\"]{overflow-wrap:anywhere}[data-rc-id=\"rc-ca2aed75\"] .sv-section{padding:54px 72px!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"title\"]{font-size:clamp(30px,75.2px,76px)!important;line-height:1.01!important;letter-spacing:-.04em!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"statement\"]{font-size:clamp(31px,75.2px,76px)!important;line-height:1.08!important;letter-spacing:-.035em!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"subtitle\"]{font-size:clamp(17px,28.8px,27px)!important;line-height:1.3!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"body\"]{font-size:clamp(13px,16px,17px)!important;line-height:1.45!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"overline\"], [data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"label\"], [data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"smallMeta\"]{font-size:clamp(10px,12.8px,13px)!important;line-height:1.35!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [style*=\"margin-bottom\"]{margin-bottom:clamp(8px,24px,24px)!important}[data-rc-id=\"rc-ca2aed75\"] .sv-section{padding:66px 76px!important;display:flex!important;align-items:center!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:clamp(17px,32px,28px)!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"statement\"]{font-size:clamp(44px,86.4px,84px)!important;line-height:1.06!important;letter-spacing:-.045em!important;max-width:1320px!important;margin:0!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner>div{min-width:0!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [style*=\"margin-bottom\"]{margin-bottom:0!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-role=\"overline\"]{margin:0!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr)!important;gap:22px 38px!important;align-items:center!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner> :first-child{grid-column:1/-1!important}[data-rc-id=\"rc-ca2aed75\"] .sv-inner [data-sb-media], [data-rc-id=\"rc-ca2aed75\"] .sv-inner .sv-media{max-width:100%!important;max-height:100%!important;aspect-ratio:16/9!important}</style><div class=\"rc-stage\" style=\"position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:scale(0.8);transform:scale(calc(100cqw / 1600px));--pad:64px\"><section class=\"sv-section\" style=\"background: rgb(230, 59, 43); padding: clamp(80px,108px,160px) var(--pad); position: absolute !important; left: 0px !important; top: 0px !important; width: 1600px !important; height: 900px !important; min-height: 0px !important; max-height: 900px !important; overflow: hidden !important; box-sizing: border-box !important;\"><div class=\"sv-inner\" style=\"display: flex; flex-direction: column; align-items: flex-start; width: 100% !important; height: 100% !important; max-width: none !important; min-height: 0px !important; max-height: 100% !important; margin: 0px !important; box-sizing: border-box !important;\"><div data-sb-editable=\"\" data-slot=\"stTag\" data-role=\"overline\" style=\"color:#F5F5F3; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:40px;\">[ OUR PHILOSOPHY ]</div><h2 data-sb-editable=\"\" data-slot=\"stStatement\" data-role=\"statement\" style=\"color:#F5F5F3; font-size:clamp(36px, 96px, 88px); line-height:1.0; font-weight:700; letter-spacing:-2px; margin:0 0 48px 0; max-width:1100px;\">Good design is invisible. Great systems are inevitable.</h2><div style=\"display:flex; justify-content:space-between; width:100%; border-top:1px solid #F5F5F3; padding-top:20px;\"><span data-sb-editable=\"\" data-slot=\"stMetaL\" data-role=\"smallMeta\" style=\"color:#F5F5F3; font-size:11px; font-weight:700;\">BYBLOCKS® MANIFESTO</span><span data-sb-editable=\"\" data-slot=\"stMetaR\" data-role=\"smallMeta\" style=\"color:#F5F5F3; font-size:11px; font-weight:700;\">(001)</span></div></div></section></div></div>",
+        "styleSystem": "export",
+        "batch": null,
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "favorite": false,
+        "aspect": "16:9",
+        "canvas": {
+          "width": 1920,
+          "height": 1080
+        },
+        "entities": [
+          {
+            "type": "text",
+            "slot": "stTag",
+            "role": "overline",
+            "editable": true
+          },
+          {
+            "type": "text",
+            "slot": "stStatement",
+            "role": "statement",
+            "editable": true
+          },
+          {
+            "type": "text",
+            "slot": "stMetaL",
+            "role": "smallMeta",
+            "editable": true
+          },
+          {
+            "type": "text",
+            "slot": "stMetaR",
+            "role": "smallMeta",
+            "editable": true
+          }
+        ],
+        "motion": {
+          "contract": "motion-studio-template-v1",
+          "aspect": "16:9",
+          "canvas": {
+            "width": 1920,
+            "height": 1080
+          },
+          "entities": [
+            {
+              "type": "text",
+              "slot": "stTag",
+              "role": "overline",
+              "editable": true
+            },
+            {
+              "type": "text",
+              "slot": "stStatement",
+              "role": "statement",
+              "editable": true
+            },
+            {
+              "type": "text",
+              "slot": "stMetaL",
+              "role": "smallMeta",
+              "editable": true
+            },
+            {
+              "type": "text",
+              "slot": "stMetaR",
+              "role": "smallMeta",
+              "editable": true
+            }
+          ],
+          "animation": null
+        },
+        "recompose_prev": {
+          "canvas": {
+            "width": 1920,
+            "height": 1080
+          },
+          "aspect": "16:9",
+          "frameContract": null
+        },
+        "recompose_orig": "<section class=\"sv-section\" style=\"background:#E63B2B; padding: clamp(80px,12vh,160px) var(--pad);\"><div class=\"sv-inner\" style=\"display:flex; flex-direction:column; align-items:flex-start;\"><div data-sb-editable data-slot=\"stTag\" data-role=\"overline\" style=\"color:#F5F5F3; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:40px;\">[ OUR PHILOSOPHY ]</div><h2 data-sb-editable data-slot=\"stStatement\" data-role=\"statement\" style=\"color:#F5F5F3; font-size:clamp(36px, 6vw, 88px); line-height:1.0; font-weight:700; letter-spacing:-2px; margin:0 0 48px 0; max-width:1100px;\">Good design is invisible. Great systems are inevitable.</h2><div style=\"display:flex; justify-content:space-between; width:100%; border-top:1px solid #F5F5F3; padding-top:20px;\"><span data-sb-editable data-slot=\"stMetaL\" data-role=\"smallMeta\" style=\"color:#F5F5F3; font-size:11px; font-weight:700;\">BYBLOCKS® MANIFESTO</span><span data-sb-editable data-slot=\"stMetaR\" data-role=\"smallMeta\" style=\"color:#F5F5F3; font-size:11px; font-weight:700;\">(001)</span></div></div></section>",
+        "frameContract": "sandbox-frame-v1",
+        "recomposeFrame": {
+          "w": 1600,
+          "h": 900,
+          "algo": "recompose-core/1.0"
+        },
+        "recompose": {
+          "sourceTpl": "statementFullBleed",
+          "sourceHash": "296b0676",
+          "method": "split",
+          "format": "16:9",
+          "algo": "recompose-core/1.0",
+          "status": "ok",
+          "createdAt": "2026-10-12T00:06:08.312Z",
+          "fit": {
+            "factor": 1,
+            "steps": 0
+          },
+          "handler": "statement",
+          "structurePreserved": true,
+          "overflowCount": 0,
+          "stable": true,
+          "warnings": [],
+          "reasons": [],
+          "parentTpl": "statementFullBleed",
+          "baseTpl": "statementFullBleed",
+          "inputTpl": "statementFullBleed",
+          "inputKind": "origin",
+          "resultHash": "cc9c9c3f",
+          "appliedToOriginal": true
+        }
+      },
+      "source": null,
+      "batch": null
+    },
+    {
+      "tpl": "directionsStatement",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 5,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "1wwl1zm:1670"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "directionsStatement",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Крупный statement: 20 направлений",
+        "code": "ST-01",
+        "icon": "≡",
+        "desc": "Крупный текстовый statement 16:9 — абзац-перечисление направлений через запятую, левая выключка, много воздуха",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;height:auto;box-sizing:border-box;overflow:hidden;background:#0e0e0e;color:#efefef;font-family:Inter,Helvetica,Arial,sans-serif;\"><div class=\"sv-inner\" style=\"display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;padding:clamp(28px,4.5vw,72px);box-sizing:border-box;\"><div style=\"display:flex;justify-content:space-between;align-items:center;\"><span data-sb-editable data-slot=\"overline\" data-role=\"overline\" style=\"font-size:clamp(10px,0.9vw,14px);letter-spacing:0.2em;text-transform:uppercase;opacity:0.4;\">Index</span><span data-sb-editable data-slot=\"code\" data-role=\"smallMeta\" style=\"font-size:clamp(10px,0.9vw,14px);letter-spacing:0.16em;opacity:0.4;\">20 Directions</span></div><p data-sb-editable data-slot=\"statement\" data-role=\"statement\" style=\"margin:0;max-width:92%;font-size:clamp(18px,2.6vw,42px);font-weight:400;line-height:1.28;letter-spacing:-0.025em;\">Fashion, Beauty, Portrait, Editorial, Lookbook, Campaign, Key Visual, E-commerce, Still Life, Product, Interior, Architecture, Castings, Backstage, Runway, Music, Documentary, Personal, For Studios, Motion.</p><div style=\"display:flex;justify-content:space-between;align-items:center;\"><span data-sb-editable data-slot=\"label\" data-role=\"label\" style=\"font-size:clamp(11px,0.95vw,14px);opacity:0.35;\">All practices in one reel</span><span data-sb-editable data-slot=\"link\" data-role=\"link\" style=\"font-size:clamp(11px,0.95vw,14px);letter-spacing:0.08em;text-transform:uppercase;opacity:0.55;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:2px;\">View full list</span></div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mtv4ni73_clh",
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "favorite": false
+      },
+      "source": null,
+      "batch": "b_mtv4ni73_clh"
+    },
+    {
+      "tpl": "statementManifest",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "n2zh52:965"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "statementManifest",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Крупный statement-манифест",
+        "code": "ST-01",
+        "icon": "≡",
+        "desc": "Один крупный абзац с левой выключкой — перечисление направлений через запятую как манифест. Типографика на грани кропа, swiss editorial.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9; width:100%; overflow:hidden; display:flex; background:#0e0e0e;\"><div class=\"sv-inner\" style=\"flex:1; display:flex; flex-direction:column; justify-content:center; padding:clamp(2rem,6vw,5rem); height:100%; box-sizing:border-box;\"><span data-sb-editable data-slot=\"statementOverline\" data-role=\"overline\" style=\"font-size:clamp(0.6rem,1vw,0.8rem); letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.4); margin-bottom:clamp(1rem,2.5vw,2rem);\">Practice</span><p data-sb-editable data-slot=\"statementBody\" data-role=\"statement\" style=\"font-size:clamp(1.4rem,3.6vw,3.4rem); font-weight:500; letter-spacing:-0.035em; line-height:1.15; color:#f2f2f2; margin:0; max-width:92%;\">Fashion, editorial, lookbook, campaign, key visual, personal, for studios, e-commerce, still life, motion, backstage, casting, set design, beauty, portrait, object, archive, research, type, atmosphere</p></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mtv6lrsi_ezb",
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "favorite": false
+      },
+      "source": null,
+      "batch": "b_mtv6lrsi_ezb"
+    },
+    {
+      "tpl": "contactSplitTwoColumn_r169_smart",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 9,
+        "mediaCount": 0,
+        "formatKnown": true,
+        "htmlHash": "1xw222d:6717"
+      },
+      "adaptation": {
+        "sourceFormat": "16:9",
+        "conversion": {
+          "sourceTpl": "contactSplitTwoColumn",
+          "targetFormat": "16:9",
+          "method": "smart",
+          "sourceHashAtCreate": "7d29xv:2361",
+          "outdated": false
+        },
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "contactSplitTwoColumn_r169_smart",
+        "family": "contact",
+        "group": "Секции",
+        "label": "Контакт: заголовок слева, реквизиты справа · Converted 16:9 · smart",
+        "code": "C-11",
+        "icon": "✉",
+        "desc": "Двухколоночный контакт: overline/title/body слева; справа пары label+value для email, telegram и соцсетей",
+        "single": false,
+        "kind": "static",
+        "html": "<div class=\"rc-frame\" data-rc-id=\"rc-5f39701b\" data-rc-format=\"16:9\" style=\"position:relative;width:100%;aspect-ratio:1600/900;overflow:hidden;box-sizing:border-box;container-type:inline-size\"><style>[data-rc-id=\"rc-5f39701b\"] .rc-stage, [data-rc-id=\"rc-5f39701b\"] .rc-stage{margin:0!important;padding:0!important;width:1600px!important;min-width:1600px!important;height:900px!important;min-height:900px!important;max-height:900px!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important}[data-rc-id=\"rc-5f39701b\"] .rc-stage{position:relative!important;--pad:64px!important;overflow:hidden!important;font-family:Arial,sans-serif}[data-rc-id=\"rc-5f39701b\"] *, [data-rc-id=\"rc-5f39701b\"] *:before, [data-rc-id=\"rc-5f39701b\"] *:after{box-sizing:border-box}[data-rc-id=\"rc-5f39701b\"] .sv-section{position:absolute!important;left:0!important;top:0!important;width:1600px!important;height:900px!important;min-height:0!important;max-height:900px!important;margin:0!important;padding:54px 68px!important;overflow:hidden!important;box-sizing:border-box!important}[data-rc-id=\"rc-5f39701b\"] .sv-section>.sv-inner{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-height:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner>*{min-width:0!important;max-width:100%!important}[data-rc-id=\"rc-5f39701b\"] [data-sb-editable], [data-rc-id=\"rc-5f39701b\"] [data-sb-media], [data-rc-id=\"rc-5f39701b\"] .sv-media{box-sizing:border-box!important;min-width:0!important}[data-rc-id=\"rc-5f39701b\"] .sv-media, [data-rc-id=\"rc-5f39701b\"] [data-sb-media]{max-width:100%!important}[data-rc-id=\"rc-5f39701b\"] img, [data-rc-id=\"rc-5f39701b\"] video, [data-rc-id=\"rc-5f39701b\"] svg{max-width:100%;}[data-rc-id=\"rc-5f39701b\"] [data-role=\"overline\"], [data-rc-id=\"rc-5f39701b\"] [data-role=\"label\"], [data-rc-id=\"rc-5f39701b\"] [data-role=\"smallMeta\"]{overflow-wrap:anywhere}[data-rc-id=\"rc-5f39701b\"] .sv-section{padding:54px 72px!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"title\"]{font-size:clamp(30px,75.2px,76px)!important;line-height:1.01!important;letter-spacing:-.04em!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"statement\"]{font-size:clamp(31px,75.2px,76px)!important;line-height:1.08!important;letter-spacing:-.035em!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"subtitle\"]{font-size:clamp(17px,28.8px,27px)!important;line-height:1.3!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"body\"]{font-size:clamp(13px,16px,17px)!important;line-height:1.45!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"overline\"], [data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"label\"], [data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"smallMeta\"]{font-size:clamp(10px,12.8px,13px)!important;line-height:1.35!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [style*=\"margin-bottom\"]{margin-bottom:clamp(8px,24px,24px)!important}[data-rc-id=\"rc-5f39701b\"] .sv-section{padding:64px 84px!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner{display:grid!important;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)!important;gap:clamp(50px,96px,94px)!important;align-items:center!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner>div{min-width:0!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner>div:first-child{gap:clamp(12px,27.2px,25px)!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner>div:nth-child(2){gap:clamp(17px,32px,30px)!important;padding-top:0!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"title\"]{font-size:clamp(50px,83.2px,82px)!important;line-height:1!important}[data-rc-id=\"rc-5f39701b\"] .sv-inner [data-role=\"body\"]{font-size:clamp(16px,20px,20px)!important;line-height:1.5!important}</style><div class=\"rc-stage\" style=\"position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;--pad:64px\"><section class=\"sv-section\" style=\"background: rgb(255, 255, 255); padding: clamp(80px,90px,140px) var(--pad); position: absolute !important; left: 0px !important; top: 0px !important; width: 1600px !important; height: 900px !important; min-height: 0px !important; max-height: 900px !important; overflow: hidden !important; box-sizing: border-box !important;\"><div class=\"sv-inner\" style=\"max-width: none !important; margin: 0px !important; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: calc(96px); align-items: start; width: 100% !important; height: 100% !important; min-height: 0px !important; max-height: 100% !important; box-sizing: border-box !important;\"><div style=\"display:flex; flex-direction:column; gap:clamp(14px,28.8px,22px);\"><div data-sb-editable=\"\" data-slot=\"overline\" data-role=\"overline\" style=\"font-size:clamp(11px,16px,13px); letter-spacing:0.14em; text-transform:uppercase; color:#8a8f98;\">Contact</div><h2 data-sb-editable=\"\" data-slot=\"title\" data-role=\"title\" style=\"font-size:clamp(36px,72px,56px); font-weight:500; line-height:1.08; margin:0; color:#0a0e18;\">Contact</h2><div data-sb-editable=\"\" data-slot=\"body\" data-role=\"body\" style=\"font-size:clamp(15px,20.8px,18px); line-height:1.7; color:#3a3f4b; max-width:420px;\">Открыт к сотрудничеству с брендами, студиями, агентствами и командами, которым нужен visual direction, concept development или production-ready visual language.</div></div><div style=\"display:flex; flex-direction:column; gap:clamp(22px,40px,32px); padding-top:clamp(28px,48px,48px);\"><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable=\"\" data-slot=\"labelEmail\" data-role=\"label\" style=\"font-size:clamp(11px,16px,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Email</div><div data-sb-editable=\"\" data-slot=\"valueEmail\" data-role=\"link\" style=\"font-size:clamp(15px,20.8px,18px); color:#0a0e18;\">hello@example.com</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable=\"\" data-slot=\"labelTelegram\" data-role=\"label\" style=\"font-size:clamp(11px,16px,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Telegram</div><div data-sb-editable=\"\" data-slot=\"valueTelegram\" data-role=\"link\" style=\"font-size:clamp(15px,20.8px,18px); color:#0a0e18;\">@telegram</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable=\"\" data-slot=\"labelSocial\" data-role=\"label\" style=\"font-size:clamp(11px,16px,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Behance / Website / Instagram</div><div data-sb-editable=\"\" data-slot=\"valueSocial\" data-role=\"link\" style=\"font-size:clamp(15px,20.8px,18px); color:#0a0e18; white-space:pre-line;\">behance.net/name\ninstagram.com/name</div></div></div></div></section></div></div>",
+        "styleSystem": "export",
+        "batch": null,
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "aspect": "16:9",
+        "canvas": {
+          "width": 1920,
+          "height": 1080
+        },
+        "frameContract": "sandbox-frame-v1",
+        "recomposeFrame": {
+          "w": 1600,
+          "h": 900,
+          "algo": "recompose-core/1.0"
+        },
+        "recompose": {
+          "sourceTpl": "contactSplitTwoColumn",
+          "sourceHash": "67411413",
+          "method": "smart",
+          "format": "16:9",
+          "algo": "recompose-core/1.0",
+          "status": "ok",
+          "createdAt": "2026-10-15T11:46:16.865Z",
+          "fit": {
+            "factor": 1,
+            "steps": 0
+          },
+          "handler": "contact",
+          "structurePreserved": true,
+          "overflowCount": 0,
+          "stable": true,
+          "warnings": [],
+          "reasons": [],
+          "parentTpl": "contactSplitTwoColumn",
+          "baseTpl": "contactSplitTwoColumn",
+          "inputTpl": "contactSplitTwoColumn",
+          "inputKind": "origin",
+          "resultHash": "82426abd"
+        },
+        "recompose_prev": {
+          "canvas": {
+            "width": 1920,
+            "height": 1080
+          },
+          "aspect": "16:9",
+          "frameContract": "sandbox-frame-v1"
+        },
+        "recompose_orig": "<section class=\"sv-section\" style=\"background:#ffffff; padding:clamp(80px,10vh,140px) var(--pad);\"><div class=\"sv-inner\" style=\"max-width:1100px; margin:0 auto; display:grid; grid-template-columns:1.1fr 0.9fr; gap:clamp(48px,6vw,96px); align-items:start;\"><div style=\"display:flex; flex-direction:column; gap:clamp(14px,1.8vw,22px);\"><div data-sb-editable data-slot=\"overline\" data-role=\"overline\" style=\"font-size:clamp(11px,1vw,13px); letter-spacing:0.14em; text-transform:uppercase; color:#8a8f98;\">Contact</div><h2 data-sb-editable data-slot=\"title\" data-role=\"title\" style=\"font-size:clamp(36px,4.5vw,56px); font-weight:500; line-height:1.08; margin:0; color:#0a0e18;\">Contact</h2><div data-sb-editable data-slot=\"body\" data-role=\"body\" style=\"font-size:clamp(15px,1.3vw,18px); line-height:1.7; color:#3a3f4b; max-width:420px;\">Открыт к сотрудничеству с брендами, студиями, агентствами и командами, которым нужен visual direction, concept development или production-ready visual language.</div></div><div style=\"display:flex; flex-direction:column; gap:clamp(22px,2.5vw,32px); padding-top:clamp(28px,3vw,48px);\"><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelEmail\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Email</div><div data-sb-editable data-slot=\"valueEmail\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18;\">hello@example.com</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelTelegram\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Telegram</div><div data-sb-editable data-slot=\"valueTelegram\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18;\">@telegram</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelSocial\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Behance / Website / Instagram</div><div data-sb-editable data-slot=\"valueSocial\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18; white-space:pre-line;\">behance.net/name\ninstagram.com/name</div></div></div></div></section>"
+      },
+      "source": {
+        "tpl": "contactSplitTwoColumn",
+        "label": "Контакт: заголовок слева, реквизиты справа",
+        "html": "<section class=\"sv-section\" style=\"background:#ffffff; padding:clamp(80px,10vh,140px) var(--pad);\"><div class=\"sv-inner\" style=\"max-width:1100px; margin:0 auto; display:grid; grid-template-columns:1.1fr 0.9fr; gap:clamp(48px,6vw,96px); align-items:start;\"><div style=\"display:flex; flex-direction:column; gap:clamp(14px,1.8vw,22px);\"><div data-sb-editable data-slot=\"overline\" data-role=\"overline\" style=\"font-size:clamp(11px,1vw,13px); letter-spacing:0.14em; text-transform:uppercase; color:#8a8f98;\">Contact</div><h2 data-sb-editable data-slot=\"title\" data-role=\"title\" style=\"font-size:clamp(36px,4.5vw,56px); font-weight:500; line-height:1.08; margin:0; color:#0a0e18;\">Contact</h2><div data-sb-editable data-slot=\"body\" data-role=\"body\" style=\"font-size:clamp(15px,1.3vw,18px); line-height:1.7; color:#3a3f4b; max-width:420px;\">Открыт к сотрудничеству с брендами, студиями, агентствами и командами, которым нужен visual direction, concept development или production-ready visual language.</div></div><div style=\"display:flex; flex-direction:column; gap:clamp(22px,2.5vw,32px); padding-top:clamp(28px,3vw,48px);\"><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelEmail\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Email</div><div data-sb-editable data-slot=\"valueEmail\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18;\">hello@example.com</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelTelegram\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Telegram</div><div data-sb-editable data-slot=\"valueTelegram\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18;\">@telegram</div></div><div style=\"display:flex; flex-direction:column; gap:6px;\"><div data-sb-editable data-slot=\"labelSocial\" data-role=\"label\" style=\"font-size:clamp(11px,1vw,12px); letter-spacing:0.12em; text-transform:uppercase; color:#8a8f98;\">Behance / Website / Instagram</div><div data-sb-editable data-slot=\"valueSocial\" data-role=\"link\" style=\"font-size:clamp(15px,1.3vw,18px); color:#0a0e18; white-space:pre-line;\">behance.net/name\ninstagram.com/name</div></div></div></div></section>",
+        "note": "текущий исходник конверсии (для восстановления структуры)"
+      },
+      "batch": null
+    },
+    {
+      "tpl": "showreelDirectionsList_2_001",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "1ji541p:1123"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "showreelDirectionsList_2_001",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Крупный перечень направлений через запятую",
+        "code": "ST-01",
+        "icon": "▤",
+        "desc": "Кадр 16:9 с крупным абзацем по центру, левая выключка. Перечисление ~20 направлений через запятую. Воздух, швейцарская типографика.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"background:#e8e8e4; padding:0; aspect-ratio:16/9; overflow:hidden;\"><div class=\"sv-inner\" style=\"display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; width:100%; padding:clamp(40px,6vw,96px); box-sizing:border-box;\"><span data-sb-editable=\"\" data-slot=\"overline\" data-role=\"overline\" style=\"font-family:system-ui,Helvetica,Arial,sans-serif; font-size:clamp(10px,0.9vw,13px); letter-spacing:0.26em; text-transform:uppercase; color:rgba(0,0,0,0.3); margin-bottom:clamp(20px,3vw,40px); font-weight:600;\">All directions</span><p data-sb-editable=\"\" data-slot=\"directionsList\" data-role=\"statement\" style=\"font-family:system-ui,Helvetica,Arial,sans-serif; font-size:clamp(18px,2.4vw,36px); line-height:1.28; font-weight:600; letter-spacing:-0.025em; color:#0a0a0a; margin:0; max-width:22em; text-align:left; align-self:center;\">Fashion, Editorial, Key Visual, For Studios, Personal, Beauty, Lookbook, Campaign, Still Life, Portrait, Motion, Backstage, Runway, Product, Lifestyle, Casting, Moodboard, Art Direction, Set Design, Print</p></div></section>",
+        "styleSystem": "export",
+        "batch": null,
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": null
+    },
+    {
+      "tpl": "showreelDirectionsFlush_001",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "1cd7i2h:1045"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "showreelDirectionsFlush_001",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Направления — полная ширина, левая выключка",
+        "code": "ST-02",
+        "icon": "☰",
+        "desc": "Альтернатива перечня: крупный текст на всю ширину кадра 16:9, левая выключка, минимальные поля. Для 20 направлений через запятую.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"background:#0a0a0a; padding:0; aspect-ratio:16/9; overflow:hidden;\"><div class=\"sv-inner\" style=\"display:flex; flex-direction:column; justify-content:center; height:100%; width:100%; padding:clamp(36px,5vw,80px); box-sizing:border-box; gap:clamp(18px,2.5vw,32px);\"><span data-sb-editable=\"\" data-slot=\"label\" data-role=\"label\" style=\"font-family:system-ui,Helvetica,Arial,sans-serif; font-size:clamp(10px,0.85vw,12px); letter-spacing:0.24em; text-transform:uppercase; color:rgba(255,255,255,0.28);\">Index</span><p data-sb-editable=\"\" data-slot=\"fullList\" data-role=\"statement\" style=\"font-family:system-ui,Helvetica,Arial,sans-serif; font-size:clamp(16px,2.1vw,32px); line-height:1.32; font-weight:600; letter-spacing:-0.02em; color:#ffffff; margin:0; text-align:left; max-width:100%;\">Fashion, For Studios, Personal, Key Visual, Editorial, Campaign, Beauty, Lookbook, Portrait, Still Life, Motion, Runway, Product, Lifestyle, Backstage, Casting, Moodboard, Art Direction, Set Design, Print</p></div></section>",
+        "styleSystem": "export",
+        "batch": null,
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": null
+    },
+    {
+      "tpl": "statementManifest_001",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "i5p6k:971"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "statementManifest_001",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Крупный statement-манифест",
+        "code": "ST-01",
+        "icon": "≡",
+        "desc": "Один крупный абзац с левой выключкой — перечисление направлений через запятую как манифест. Типографика на грани кропа, swiss editorial.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9; width:100%; overflow:hidden; display:flex; background:#0e0e0e;\"><div class=\"sv-inner\" style=\"flex:1; display:flex; flex-direction:column; justify-content:center; padding:clamp(2rem,6vw,5rem); height:100%; box-sizing:border-box;\"><span data-sb-editable=\"\" data-slot=\"statementOverline\" data-role=\"overline\" style=\"font-size:clamp(0.6rem,1vw,0.8rem); letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.4); margin-bottom:clamp(1rem,2.5vw,2rem);\">Practice</span><p data-sb-editable=\"\" data-slot=\"statementBody\" data-role=\"statement\" style=\"font-size:clamp(1.4rem,3.6vw,3.4rem); font-weight:500; letter-spacing:-0.035em; line-height:1.15; color:#f2f2f2; margin:0; max-width:92%;\">Fashion, editorial, lookbook, campaign, key visual, personal, for studios, e-commerce, still life, motion, backstage, casting, set design, beauty, portrait, object, archive, research, type, atmosphere</p></div></section>",
+        "styleSystem": "export",
+        "batch": null,
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": null
+    },
+    {
+      "tpl": "availableNowAgent",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 3,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "qy3rxo:1683"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "availableNowAgent",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Доступно сейчас в Agent",
+        "code": "ANA01",
+        "icon": "✦",
+        "desc": "Белый кадр с крупным центрированным заголовком и строкой с иконкой Agent",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#ffffff;\"><div class=\"sv-inner\" style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6% 8%;gap:0.6em;\"><div data-sb-editable data-slot=\"title\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(28px,5.2vw,64px);font-weight:600;letter-spacing:-0.03em;color:#111;line-height:1.1;text-align:center;\">Available Now</div><div style=\"display:flex;align-items:center;gap:0.45em;\"><span data-sb-editable data-slot=\"prefix\" data-role=\"subtitle\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">in</span><span style=\"display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;border-radius:0.4em;background:#f0f0f2;flex-shrink:0;\"><span style=\"display:grid;grid-template-columns:repeat(2,1fr);gap:3px;width:0.55em;height:0.55em;\"><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i></span></span><span data-sb-editable data-slot=\"product\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">Agent</span></div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mv3nyuqj_kr6",
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": "b_mv3nyuqj_kr6"
+    },
+    {
+      "tpl": "availableNowAgent_r169_compact",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 3,
+        "mediaCount": 0,
+        "formatKnown": true,
+        "htmlHash": "1pd6mj9:5764"
+      },
+      "adaptation": {
+        "sourceFormat": "16:9",
+        "conversion": {
+          "sourceTpl": "availableNowAgent",
+          "targetFormat": "16:9",
+          "method": "compact",
+          "sourceHashAtCreate": "qy3rxo:1683",
+          "outdated": false
+        },
+        "recommendedMethod": "smart",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "availableNowAgent_r169_compact",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Доступно сейчас в Agent · Converted 16:9 · compact",
+        "code": "ANA01",
+        "icon": "✦",
+        "desc": "Белый кадр с крупным центрированным заголовком и строкой с иконкой Agent",
+        "single": false,
+        "kind": "static",
+        "html": "<div class=\"rc-frame\" data-rc-id=\"rc-19da8940\" data-rc-format=\"16:9\" style=\"position:relative;width:100%;aspect-ratio:1600/900;overflow:hidden;box-sizing:border-box;container-type:inline-size\"><style>[data-rc-id=\"rc-19da8940\"] .rc-stage, [data-rc-id=\"rc-19da8940\"] .rc-stage{margin:0!important;padding:0!important;width:1600px!important;min-width:1600px!important;height:900px!important;min-height:900px!important;max-height:900px!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important}[data-rc-id=\"rc-19da8940\"] .rc-stage{position:relative!important;--pad:64px!important;overflow:hidden!important;font-family:Arial,sans-serif}[data-rc-id=\"rc-19da8940\"] *, [data-rc-id=\"rc-19da8940\"] *:before, [data-rc-id=\"rc-19da8940\"] *:after{box-sizing:border-box}[data-rc-id=\"rc-19da8940\"] .sv-section{position:absolute!important;left:0!important;top:0!important;width:1600px!important;height:900px!important;min-height:0!important;max-height:900px!important;margin:0!important;padding:54px 68px!important;overflow:hidden!important;box-sizing:border-box!important}[data-rc-id=\"rc-19da8940\"] .sv-section>.sv-inner{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-height:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}[data-rc-id=\"rc-19da8940\"] .sv-inner>*{min-width:0!important;max-width:100%!important}[data-rc-id=\"rc-19da8940\"] [data-sb-editable], [data-rc-id=\"rc-19da8940\"] [data-sb-media], [data-rc-id=\"rc-19da8940\"] .sv-media{box-sizing:border-box!important;min-width:0!important}[data-rc-id=\"rc-19da8940\"] .sv-media, [data-rc-id=\"rc-19da8940\"] [data-sb-media]{max-width:100%!important}[data-rc-id=\"rc-19da8940\"] img, [data-rc-id=\"rc-19da8940\"] video, [data-rc-id=\"rc-19da8940\"] svg{max-width:100%;}[data-rc-id=\"rc-19da8940\"] [data-role=\"overline\"], [data-rc-id=\"rc-19da8940\"] [data-role=\"label\"], [data-rc-id=\"rc-19da8940\"] [data-role=\"smallMeta\"]{overflow-wrap:anywhere}[data-rc-id=\"rc-19da8940\"] .sv-section{padding:42px 52px!important}[data-rc-id=\"rc-19da8940\"] .sv-section>.sv-inner{gap:clamp(12px,25.6px,24px)!important}[data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"title\"], [data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"statement\"]{font-size:clamp(27px,70.4px,70px)!important;line-height:1.02!important;letter-spacing:-.035em!important}[data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"subtitle\"]{font-size:clamp(17px,28.8px,26px)!important;line-height:1.2!important}[data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"body\"]{font-size:clamp(13px,16px,17px)!important;line-height:1.42!important}[data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"overline\"], [data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"label\"], [data-rc-id=\"rc-19da8940\"] .sv-inner [data-role=\"smallMeta\"]{font-size:clamp(10px,12.8px,13px)!important;line-height:1.35!important}[data-rc-id=\"rc-19da8940\"] .sv-inner h1, [data-rc-id=\"rc-19da8940\"] .sv-inner h2, [data-rc-id=\"rc-19da8940\"] .sv-inner h3, [data-rc-id=\"rc-19da8940\"] .sv-inner h4{max-width:100%!important;overflow-wrap:anywhere!important}[data-rc-id=\"rc-19da8940\"] .sv-inner p{max-width:100%!important}[data-rc-id=\"rc-19da8940\"] .sv-section [style*=\"padding\"]{padding-top:clamp(8px,22.4px,22px)!important;padding-bottom:clamp(8px,22.4px,22px)!important}[data-rc-id=\"rc-19da8940\"] .sv-section [style*=\"margin-bottom\"]{margin-bottom:clamp(8px,22.4px,22px)!important}</style><div class=\"rc-stage\" style=\"position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:scale(0.8);transform:scale(calc(100cqw / 1600px));--pad:64px\"><section class=\"sv-section\" style=\"aspect-ratio: 16 / 9; width: 1600px !important; overflow: hidden !important; display: flex; background: rgb(255, 255, 255); position: absolute !important; left: 0px !important; top: 0px !important; height: 900px !important; min-height: 0px !important; max-height: 900px !important; box-sizing: border-box !important;\"><div class=\"sv-inner\" style=\"flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6% 8%; gap: 0.6em; width: 100% !important; height: 100% !important; max-width: none !important; min-height: 0px !important; max-height: 100% !important; margin: 0px !important; box-sizing: border-box !important;\"><div data-sb-editable=\"\" data-slot=\"title\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(28px,83.2px,64px);font-weight:600;letter-spacing:-0.03em;color:#111;line-height:1.1;text-align:center;\">Available Now</div><div style=\"display:flex;align-items:center;gap:0.45em;\"><span data-sb-editable=\"\" data-slot=\"prefix\" data-role=\"subtitle\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,64px,48px);font-weight:500;color:#111;line-height:1;\">in</span><span style=\"display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;border-radius:0.4em;background:#f0f0f2;flex-shrink:0;\"><span style=\"display:grid;grid-template-columns:repeat(2,1fr);gap:3px;width:0.55em;height:0.55em;\"><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i></span></span><span data-sb-editable=\"\" data-slot=\"product\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,64px,48px);font-weight:500;color:#111;line-height:1;\">Agent</span></div></div></section></div></div>",
+        "styleSystem": "export",
+        "batch": "b_mv3nyuqj_kr6",
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "recompose_orig": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#ffffff;\"><div class=\"sv-inner\" style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6% 8%;gap:0.6em;\"><div data-sb-editable data-slot=\"title\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(28px,5.2vw,64px);font-weight:600;letter-spacing:-0.03em;color:#111;line-height:1.1;text-align:center;\">Available Now</div><div style=\"display:flex;align-items:center;gap:0.45em;\"><span data-sb-editable data-slot=\"prefix\" data-role=\"subtitle\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">in</span><span style=\"display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;border-radius:0.4em;background:#f0f0f2;flex-shrink:0;\"><span style=\"display:grid;grid-template-columns:repeat(2,1fr);gap:3px;width:0.55em;height:0.55em;\"><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i></span></span><span data-sb-editable data-slot=\"product\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">Agent</span></div></div></section>",
+        "aspect": "16:9",
+        "canvas": {
+          "width": 1920,
+          "height": 1080
+        },
+        "frameContract": "sandbox-frame-v1",
+        "recomposeFrame": {
+          "w": 1600,
+          "h": 900,
+          "algo": "recompose-core/1.0"
+        },
+        "recompose": {
+          "sourceTpl": "availableNowAgent",
+          "sourceHash": "472a16b6",
+          "method": "compact",
+          "format": "16:9",
+          "algo": "recompose-core/1.0",
+          "status": "ok",
+          "createdAt": "2026-10-11T10:12:54.210Z",
+          "fit": {
+            "factor": 1,
+            "steps": 0
+          },
+          "handler": "generic",
+          "structurePreserved": true,
+          "overflowCount": 0,
+          "stable": true,
+          "warnings": [],
+          "reasons": []
+        }
+      },
+      "source": {
+        "tpl": "availableNowAgent",
+        "label": "Доступно сейчас в Agent",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#ffffff;\"><div class=\"sv-inner\" style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6% 8%;gap:0.6em;\"><div data-sb-editable data-slot=\"title\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(28px,5.2vw,64px);font-weight:600;letter-spacing:-0.03em;color:#111;line-height:1.1;text-align:center;\">Available Now</div><div style=\"display:flex;align-items:center;gap:0.45em;\"><span data-sb-editable data-slot=\"prefix\" data-role=\"subtitle\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">in</span><span style=\"display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;border-radius:0.4em;background:#f0f0f2;flex-shrink:0;\"><span style=\"display:grid;grid-template-columns:repeat(2,1fr);gap:3px;width:0.55em;height:0.55em;\"><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i><i style=\"width:4px;height:4px;border-radius:50%;background:#222;display:block;\"></i></span></span><span data-sb-editable data-slot=\"product\" data-role=\"title\" style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(22px,4vw,48px);font-weight:500;color:#111;line-height:1;\">Agent</span></div></div></section>",
+        "note": "текущий исходник конверсии (для восстановления структуры)"
+      },
+      "batch": "b_mv3nyuqj_kr6"
+    },
+    {
+      "tpl": "nextTaskPrompt",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "4jedu0:746"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "smart",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "nextTaskPrompt",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Диалоговый промпт на тёмном фоне",
+        "code": "ST06",
+        "icon": "✳",
+        "desc": "Небольшая тёмная плашка с символом и коротким сообщением на чёрном фоне.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#000;color:#f3f3f3;box-sizing:border-box;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8%;box-sizing:border-box;\"><div style=\"width:78%;display:flex;align-items:center;gap:14px;background:#101112;border-radius:10px;padding:3% 4%;box-sizing:border-box;\"><div data-sb-editable data-slot=\"nextTaskSymbol\" data-role=\"label\" style=\"font:500 20px Arial,sans-serif;color:#d8d8d8;\">✳</div><div data-sb-editable data-slot=\"nextTaskText\" data-role=\"body\" style=\"font:400 23px Arial,sans-serif;letter-spacing:-1px;\">Nice work. What should we tackle next?</div></div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mv3ocgx5_b7h",
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": "b_mv3ocgx5_b7h"
+    },
+    {
+      "tpl": "nextTaskPrompt_r169_compact",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "other",
+          "type": "other",
+          "severity": "warning",
+          "confidence": "medium",
+          "reason": "нет [data-role=\"title\"] или [data-role=\"statement\"], который объявляют модули: Реконструкция по ролям, Редакционный split",
+          "element": "[data-role=\"title\"] или [data-role=\"statement\"]"
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 2,
+        "mediaCount": 0,
+        "formatKnown": true,
+        "htmlHash": "1j4175a:4753"
+      },
+      "adaptation": {
+        "sourceFormat": "16:9",
+        "conversion": {
+          "sourceTpl": "nextTaskPrompt",
+          "targetFormat": "16:9",
+          "method": "compact",
+          "sourceHashAtCreate": "4jedu0:746",
+          "outdated": false
+        },
+        "recommendedMethod": "smart",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "nextTaskPrompt_r169_compact",
+        "family": "statement",
+        "group": "Секции",
+        "label": "Диалоговый промпт на тёмном фоне · Converted 16:9 · compact",
+        "code": "ST06",
+        "icon": "✳",
+        "desc": "Небольшая тёмная плашка с символом и коротким сообщением на чёрном фоне.",
+        "single": false,
+        "kind": "static",
+        "html": "<div class=\"rc-frame\" data-rc-id=\"rc-15e3365e\" data-rc-format=\"16:9\" style=\"position:relative;width:100%;aspect-ratio:1600/900;overflow:hidden;box-sizing:border-box;container-type:inline-size\"><style>[data-rc-id=\"rc-15e3365e\"] .rc-stage, [data-rc-id=\"rc-15e3365e\"] .rc-stage{margin:0!important;padding:0!important;width:1600px!important;min-width:1600px!important;height:900px!important;min-height:900px!important;max-height:900px!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important}[data-rc-id=\"rc-15e3365e\"] .rc-stage{position:relative!important;--pad:64px!important;overflow:hidden!important;font-family:Arial,sans-serif}[data-rc-id=\"rc-15e3365e\"] *, [data-rc-id=\"rc-15e3365e\"] *:before, [data-rc-id=\"rc-15e3365e\"] *:after{box-sizing:border-box}[data-rc-id=\"rc-15e3365e\"] .sv-section{position:absolute!important;left:0!important;top:0!important;width:1600px!important;height:900px!important;min-height:0!important;max-height:900px!important;margin:0!important;padding:54px 68px!important;overflow:hidden!important;box-sizing:border-box!important}[data-rc-id=\"rc-15e3365e\"] .sv-section>.sv-inner{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-height:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner>*{min-width:0!important;max-width:100%!important}[data-rc-id=\"rc-15e3365e\"] [data-sb-editable], [data-rc-id=\"rc-15e3365e\"] [data-sb-media], [data-rc-id=\"rc-15e3365e\"] .sv-media{box-sizing:border-box!important;min-width:0!important}[data-rc-id=\"rc-15e3365e\"] .sv-media, [data-rc-id=\"rc-15e3365e\"] [data-sb-media]{max-width:100%!important}[data-rc-id=\"rc-15e3365e\"] img, [data-rc-id=\"rc-15e3365e\"] video, [data-rc-id=\"rc-15e3365e\"] svg{max-width:100%;}[data-rc-id=\"rc-15e3365e\"] [data-role=\"overline\"], [data-rc-id=\"rc-15e3365e\"] [data-role=\"label\"], [data-rc-id=\"rc-15e3365e\"] [data-role=\"smallMeta\"]{overflow-wrap:anywhere}[data-rc-id=\"rc-15e3365e\"] .sv-section{padding:42px 52px!important}[data-rc-id=\"rc-15e3365e\"] .sv-section>.sv-inner{gap:clamp(12px,25.6px,24px)!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"title\"], [data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"statement\"]{font-size:clamp(27px,70.4px,70px)!important;line-height:1.02!important;letter-spacing:-.035em!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"subtitle\"]{font-size:clamp(17px,28.8px,26px)!important;line-height:1.2!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"body\"]{font-size:clamp(13px,16px,17px)!important;line-height:1.42!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"overline\"], [data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"label\"], [data-rc-id=\"rc-15e3365e\"] .sv-inner [data-role=\"smallMeta\"]{font-size:clamp(10px,12.8px,13px)!important;line-height:1.35!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner h1, [data-rc-id=\"rc-15e3365e\"] .sv-inner h2, [data-rc-id=\"rc-15e3365e\"] .sv-inner h3, [data-rc-id=\"rc-15e3365e\"] .sv-inner h4{max-width:100%!important;overflow-wrap:anywhere!important}[data-rc-id=\"rc-15e3365e\"] .sv-inner p{max-width:100%!important}[data-rc-id=\"rc-15e3365e\"] .sv-section [style*=\"padding\"]{padding-top:clamp(8px,22.4px,22px)!important;padding-bottom:clamp(8px,22.4px,22px)!important}[data-rc-id=\"rc-15e3365e\"] .sv-section [style*=\"margin-bottom\"]{margin-bottom:clamp(8px,22.4px,22px)!important}</style><div class=\"rc-stage\" style=\"position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:scale(0.8);transform:scale(calc(100cqw / 1600px));--pad:64px\"><section class=\"sv-section\" style=\"aspect-ratio: 16 / 9; width: 1600px !important; overflow: hidden !important; display: flex; background: rgb(0, 0, 0); color: rgb(243, 243, 243); box-sizing: border-box !important; position: absolute !important; left: 0px !important; top: 0px !important; height: 900px !important; min-height: 0px !important; max-height: 900px !important;\"><div class=\"sv-inner\" style=\"width: 100% !important; height: 100% !important; display: flex; align-items: center; justify-content: center; padding: 8%; box-sizing: border-box !important; max-width: none !important; min-height: 0px !important; max-height: 100% !important; margin: 0px !important;\"><div style=\"width:78%;display:flex;align-items:center;gap:14px;background:#101112;border-radius:10px;padding:3% 4%;box-sizing:border-box;\"><div data-sb-editable=\"\" data-slot=\"nextTaskSymbol\" data-role=\"label\" style=\"font:500 20px Arial,sans-serif;color:#d8d8d8;\">✳</div><div data-sb-editable=\"\" data-slot=\"nextTaskText\" data-role=\"body\" style=\"font:400 23px Arial,sans-serif;letter-spacing:-1px;\">Nice work. What should we tackle next?</div></div></div></section></div></div>",
+        "styleSystem": "export",
+        "batch": "b_mv3ocgx5_b7h",
+        "editable": {
+          "text": true,
+          "frames": true
+        },
+        "recompose_orig": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#000;color:#f3f3f3;box-sizing:border-box;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8%;box-sizing:border-box;\"><div style=\"width:78%;display:flex;align-items:center;gap:14px;background:#101112;border-radius:10px;padding:3% 4%;box-sizing:border-box;\"><div data-sb-editable data-slot=\"nextTaskSymbol\" data-role=\"label\" style=\"font:500 20px Arial,sans-serif;color:#d8d8d8;\">✳</div><div data-sb-editable data-slot=\"nextTaskText\" data-role=\"body\" style=\"font:400 23px Arial,sans-serif;letter-spacing:-1px;\">Nice work. What should we tackle next?</div></div></div></section>",
+        "aspect": "16:9",
+        "canvas": {
+          "width": 1920,
+          "height": 1080
+        },
+        "frameContract": "sandbox-frame-v1",
+        "recomposeFrame": {
+          "w": 1600,
+          "h": 900,
+          "algo": "recompose-core/1.0"
+        },
+        "recompose": {
+          "sourceTpl": "nextTaskPrompt",
+          "sourceHash": "ab76cfa8",
+          "method": "compact",
+          "format": "16:9",
+          "algo": "recompose-core/1.0",
+          "status": "ok",
+          "createdAt": "2026-10-11T10:26:17.649Z",
+          "fit": {
+            "factor": 1,
+            "steps": 0
+          },
+          "handler": "generic",
+          "structurePreserved": true,
+          "overflowCount": 0,
+          "stable": true,
+          "warnings": [],
+          "reasons": []
+        }
+      },
+      "source": {
+        "tpl": "nextTaskPrompt",
+        "label": "Диалоговый промпт на тёмном фоне",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#000;color:#f3f3f3;box-sizing:border-box;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8%;box-sizing:border-box;\"><div style=\"width:78%;display:flex;align-items:center;gap:14px;background:#101112;border-radius:10px;padding:3% 4%;box-sizing:border-box;\"><div data-sb-editable data-slot=\"nextTaskSymbol\" data-role=\"label\" style=\"font:500 20px Arial,sans-serif;color:#d8d8d8;\">✳</div><div data-sb-editable data-slot=\"nextTaskText\" data-role=\"body\" style=\"font:400 23px Arial,sans-serif;letter-spacing:-1px;\">Nice work. What should we tackle next?</div></div></div></section>",
+        "note": "текущий исходник конверсии (для восстановления структуры)"
+      },
+      "batch": "b_mv3ocgx5_b7h"
+    },
+    {
+      "tpl": "campaignMoodboardList_2",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 7,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "1sltwlg:1550"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "campaignMoodboardList_2",
+        "family": "formats",
+        "group": "Секции",
+        "label": "Меню форматов: Moodboard",
+        "code": "FM-12",
+        "icon": "≡",
+        "desc": "Белое поле, вертикальный список форматов: активная строка чёрная со слэшем, соседние серые и бледнее к краям.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#fff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 8%;box-sizing:border-box;gap:6px;\"><div data-sb-editable data-slot=\"row1\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#d6d6d6;\">Commercial</div><div data-sb-editable data-slot=\"row2\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#c4c4c4;\">Localized Ads</div><div data-sb-editable data-slot=\"row3\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#a3a3a3;\">Character Sheet</div><div data-sb-editable data-slot=\"active\" data-role=\"title\" style=\"font-size:58px;font-weight:600;letter-spacing:-0.035em;line-height:1.05;color:#111;\">/Campaign Moodboard</div><div data-sb-editable data-slot=\"row5\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#b0b0b0;\">Motion Graphics Video</div><div data-sb-editable data-slot=\"row6\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#c8c8c8;\">Social Thumbnail</div><div data-sb-editable data-slot=\"row7\" data-role=\"label\" style=\"font-size:58px;font-weight:500;letter-spacing:-0.035em;line-height:1.05;color:#d8d8d8;\">Resize Assets</div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mv3oxh7j_tb9",
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": "b_mv3oxh7j_tb9"
+    },
+    {
+      "tpl": "adCampaignList_2",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 4,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "1lymzs2:1016"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "adCampaignList_2",
+        "family": "formats",
+        "group": "Секции",
+        "label": "Меню форматов: Ad Campaign",
+        "code": "FM-13",
+        "icon": "≡",
+        "desc": "Белое поле, крупный список форматов: первая строка активная со слэшем, следующие темнеют и бледнеют вниз.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#fff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 8%;box-sizing:border-box;gap:10px;\"><div data-sb-editable data-slot=\"active\" data-role=\"title\" style=\"font-size:72px;font-weight:600;letter-spacing:-0.04em;line-height:1.02;color:#111;\">/Ad Campaign</div><div data-sb-editable data-slot=\"row2\" data-role=\"label\" style=\"font-size:72px;font-weight:500;letter-spacing:-0.04em;line-height:1.02;color:#4a4a4a;\">Commercial</div><div data-sb-editable data-slot=\"row3\" data-role=\"label\" style=\"font-size:72px;font-weight:500;letter-spacing:-0.04em;line-height:1.02;color:#8a8a8a;\">Localized Ads</div><div data-sb-editable data-slot=\"row4\" data-role=\"label\" style=\"font-size:72px;font-weight:500;letter-spacing:-0.04em;line-height:1.02;color:#c8c8c8;\">Character Sheet</div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mv3oxh7j_tb9",
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": "b_mv3oxh7j_tb9"
+    },
+    {
+      "tpl": "runwayWordmark_2",
+      "problems": [
+        {
+          "category": "meta",
+          "type": "meta",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "нет медиа-слота (data-sb-media / .sv-media) — необязательно: шаблону могут не нужны изображения",
+          "element": "media"
+        },
+        {
+          "category": "ambiguous",
+          "type": "ambiguous",
+          "severity": "info",
+          "confidence": "low",
+          "reason": "Формат не определён (aspect не задан): совместимость методов не проверена, метод не подставлен",
+          "element": null
+        }
+      ],
+      "diagnostics": {
+        "editableCount": 1,
+        "mediaCount": 0,
+        "formatKnown": false,
+        "htmlHash": "hvems1:454"
+      },
+      "adaptation": {
+        "sourceFormat": null,
+        "conversion": null,
+        "recommendedMethod": "compact",
+        "availableMethods": [
+          "smart",
+          "compact",
+          "split",
+          "fit"
+        ]
+      },
+      "imgAssign": {},
+      "record": {
+        "tpl": "runwayWordmark_2",
+        "family": "hero",
+        "group": "Секции",
+        "label": "Знак runway",
+        "code": "RW-17",
+        "icon": "rw",
+        "desc": "Белое поле и одно слово-знак по центру, меньше, чем заголовки анонсов.",
+        "single": false,
+        "kind": "static",
+        "html": "<section class=\"sv-section\" style=\"aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;background:#fff;color:#111;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;\"><div class=\"sv-inner\" style=\"width:100%;height:100%;display:flex;align-items:center;justify-content:center;\"><div data-sb-editable data-slot=\"wordmark\" data-role=\"title\" style=\"font-size:40px;font-weight:700;letter-spacing:-0.045em;line-height:1;\">runway</div></div></section>",
+        "styleSystem": "export",
+        "batch": "b_mv3oxh7j_tb9",
+        "editable": {
+          "text": true,
+          "frames": true
+        }
+      },
+      "source": null,
+      "batch": "b_mv3oxh7j_tb9"
+    }
+  ],
+  "styles": {
+    "export": {
+      "name": "Export",
+      "color": "#3ecf8e"
+    }
+  },
+  "batches": {
+    "b_mtv4ni73_clh": {
+      "id": "b_mtv4ni73_clh",
+      "label": "Прогон 10.09.2026 16:09 · v14",
+      "note": "",
+      "link": "",
+      "color": "#ff8a3a",
+      "createdAt": 1789020564447,
+      "styleSystem": null
+    },
+    "b_mtv6lrsi_ezb": {
+      "id": "b_mtv6lrsi_ezb",
+      "label": "Прогон 10.09.2026 17:04 · v16",
+      "note": "Ты — шеф-дизайнер, арт-директор и ведущий верстальщик веб-компонентов. Твоя задача — проанализировать входные данные (изображения, код или описания) и выдать готовый JSON-массив компонентов для конструктора сайтов.\n\n1. ТЕХНИЧЕСКИЙ КОНТРАКТ JSON (СТРОГО):\nОтвет должен быть СТРОГО валидным JSON-массивом объектов (без декоративных оберток, пояснений или markdown-тегов).\nСтруктура каждого объекта в массиве:\n[\n  {\n    \"tpl\": \"уникальныйИдентификаторCamelCase\",\n    \"family\": \"nav | hero | statement | about | services | process | formats | projectCover | projectContent | gallery | contact | footer\",\n    \"group\": \"Каркас | Секции | Обложка проекта | Контент проекта | Галерея проекта\",\n    \"label\": \"Понятное название блока на русском (например: Hero с фото и спецификацией)\",\n    \"code\": \"Короткий индекс (например: BB-01, H-01, A-01, S-02)\",\n    \"icon\": \"Символ-иконка (например: ☷, ◧, ≡, ✉, ☰, ◨)\",\n    \"kind\": \"static | auto\",\n    \"single\": false,\n    \"desc\": \"Описание структуры и назначения блока\",\n    \"styleSystem\": \"default\",\n    \"html\": \"Валидная HTML-верстка одной строкой без переносов\"\n  }\n]\n\n2. КАДР 16:9 (ОДНО ЖЕЛЕЗНОЕ ПРАВИЛО ГЕОМЕТРИИ):\nКаждый шаблон — это фиксированный кинокадр 16:9 (референс 1920×1080, как слайд шоурила).\nКорневой элемент КАЖДОГО шаблона обязан иметь:\n<section class=\"sv-section\" style=\"aspect-ratio:16/9; width:100%; overflow:hidden; display:flex; background:#HEX;\">\n- aspect-ratio:16/9, width:100%, overflow:hidden — обязательны всегда, без исключений.\n- Высота кадра задается этим правилом, а не количеством контента.\n- Композиция строится ВНУТРЬ кадра от его краев: используй всю площадь панорамы, крупные кегли, смелые отступы.\n- НАМЕРЕННЫЙ КРОП РАЗРЕШЕН И ПРИВЕТСТВУЕТСЯ как editorial-прием: фоновые фото, ленты конвейера, выносная типографика могут смело уходить под обрез кадра.\n- ЗАПРЕЩЕН только случайный обрез СМЫСЛОВОГО текста: заголовки, абзацы и метки должны читаться целиком.\n\n3. КОНТРАКТ HTML-ВЕРСТКИ ВНУТРИ ПОЛЯ \"html\":\n- Корневой контейнер: <section class=\"sv-section\" style=\"aspect-ratio:16/9; width:100%; overflow:hidden; display:flex; background:#HEX;\">\n- Внутренняя обертка контента: <div class=\"sv-inner\" style=\"flex:1; display:flex; ...; padding:...\"> — воздух и отступы делай ЗДЕСЬ, внутри кадра, это твой главный инструмент воздуха.\n- Все текстовые элементы ОБЯЗАТЕЛЬНО содержат интерактивные атрибуты:\n  data-sb-editable data-slot=\"уникальныйСлот\" data-role=\"title | subtitle | body | smallMeta | overline | link | statement | label\"\n- Все медиа-блоки (картинки, плашки, видео) ОБЯЗАТЕЛЬНО содержат:\n  class=\"sv-media\" data-sb-media data-slot=\"уникальныйСлот\" data-kind=\"image\" style=\"aspect-ratio:X/Y; background:#HEX;\"\n  (внутри 16:9-кадра у медиа могут быть свои пропорции).\n- Динамические списки/повторяемые элементы содержат атрибут:\n  data-sb-repeat=\"имяСписка\" (в этом случае поле \"kind\" должно быть \"auto\").\n\n4. ТРЕБОВАНИЯ К ВЕРСТКЕ И CSS:\n- Grid и Flexbox, точные gap и padding.\n- Шрифты и отступы — через резиновые clamp(): кегли КРУПНО и уверенно (заголовочный уровень кадра — от ~5vw и выше, statement — на грани кропа).\n- Верстай от краев кадра к центру, а не наоборот: сначала масса и ритм на всю панораму, потом детали.\n- Текст в поле \"html\" — одна строка без переносов, тщательно экранированная для валидности JSON.\n\n5. СТРУКТУРА ШАБЛОНОВ (все — кадры 16:9):\n1. Сплит-экран: слева крупные текстовые обозначения направлений (Fashion / For Studios / Personal / Key Visual — заменяемые), справа медиа/видео на всю высоту кадра.\n2. Сетка микро-кадров: несколько небольших изображений по сетке + короткие абзацы текста, считываемые за секунду.\n3. Крупный statement: один крупный абзац по центру с левой выключкой — перечисление ~20 направлений через запятую, крупно, как манифест.\n4. Галерея-конвейер: три ряда изображений со сдвигом друг относительно друга, ленты смело уходят под обрез кадра влево/вправо — ощущение потока.\n5. Асимметричная сетка: несколько изображений в рандомной/асимметричной раскладке внутри кадра (2–3 варианта).\n6. Типографический hero: два огромных слова по центру, изображение за ними в центре, много воздуха.\n\n6. ВИЗУАЛЬНОЕ НАПРАВЛЕНИЕ (ГЛАВНЫЙ ПРИОРИТЕТ — ВЫШЕ ГЕОМЕТРИИ):\nВсе шаблоны — кадры ОДНОГО шоурила: доли секунды на кадр, мгновенное считывание, красивая лаконичная типографика в лучших традициях швейцарской школы, но модная: fashion/editorial характер, чистая иерархия, один сильный акцент на кадр.\nПравило вкуса: лучше смелая крупная композиция на грани кропа, чем безопасная мелкая. Каждый шаблон должен выглядеть дорого в стоп-кадре.\n\nПРАВИЛО СТИЛЯ И ДИЗАЙН-СИСТЕМЫ:\nВо всех генерируемых компонентах поле \"styleSystem\" ДОЛЖНО быть строго равно: \"default\".\nВся палитра, скругления, акценты и гарнитуры — единый визуальный код системы \"default\".\n\n7. ФИНАЛЬНАЯ ПРОВЕРКА (3 вопроса):\n- У корня есть aspect-ratio:16/9 + overflow:hidden?\n- Смысловой текст целиком внутри кадра (случайного обреза нет)?\n- HTML валиден, JSON валиден?\nВерни только JSON-массив.",
+      "link": "https://arena.ai/c/01a08a1d-5267-7860-88c4-3e3ab6cc4ab9",
+      "color": "#e03a9a",
+      "createdAt": 1789023842802,
+      "styleSystem": null
+    },
+    "b_mv3nyuqj_kr6": {
+      "id": "b_mv3nyuqj_kr6",
+      "label": "Grok 4.5 Runaway · 11.10.2026 20:11",
+      "note": "",
+      "link": "",
+      "color": "#5b8cff",
+      "createdAt": 1791713518363,
+      "styleSystem": null
+    },
+    "b_mv3ocgx5_b7h": {
+      "id": "b_mv3ocgx5_b7h",
+      "label": "GPT TEST - Runaway01 · 11.10.2026 20:22",
+      "note": "",
+      "link": "",
+      "color": "#e0b23a",
+      "createdAt": 1791714153641,
+      "styleSystem": null
+    },
+    "b_mv3oxh7j_tb9": {
+      "id": "b_mv3oxh7j_tb9",
+      "label": "Grok 4.7 Runaway · 11.10.2026 20:38",
+      "note": "You are an art director and HTML template designer. Create visual template objects from the supplied references and task. Treat the references as layout/style targets: preserve the visible hierarchy and relative placement of images, headlines, secondary text, and other elements, while adapting each composition cleanly to a 16:9 frame.\n\nINPUTS\nDESIGN SYSTEM (approved):\nVisual direction: restrained editorial frames with large, clean sans-serif typography, generous negative space, and one dominant image or phrase.\n\nCore invariants:\n- Keep typography simple, sans-serif, and visually prominent; use a clear scale contrast between headline text and small metadata.\n- Keep copy short and composition uncluttered.\n- Preserve one dominant visual or typographic focal point.\n- Use images as major narrative elements. Preserve their subject and intentional crop.\n- Avoid decorative elements unless they are clearly present in the chosen reference.\n\nComposition modes:\n1. White/light canvas with a large image and sparse text placed around it.\n2. Full-frame image/video with short overlaid words.\n3. Central image on a light field with generous surrounding space.\n4. Horizontal sequence of multiple images with concise labels.\n\nAllowed variation:\n- Change image count, placement, and scale; move text between beside-image and overlay positions; use light-field or full-image compositions.\n- Treat rounded image corners as optional, reference-specific—not a system invariant.\n\nTypography:\n- Use a neutral modern sans-serif. Exact font is unknown; do not claim a specific family.\n- Use large headline/statement text and much smaller metadata. Match the selected reference's weight, alignment, and placement.\n\nColor:\n- Typical graphic fields use white/light backgrounds with black text; full-frame images may use white overlay text.\n- Do not derive a fixed brand palette from colors inside photographs.\n\nAdaptation:\n- For a 16:9 template, preserve the reference's hierarchy and relative image/text placement. Recompose non-16:9 material without stretching; protect meaningful text and the image focal subject.\n\nExclude unless explicitly requested:\n- Player/interface chrome, cursor marks, time/frequency readouts, and Runway branding may belong to the source capture rather than the design system.\n\nREFERENCES:\n[ATTACHED images. \n\nTASK:\nСделать JSON-массив прикрепленных кадров, учитывая картинки, все шаблоны, которые есть, нужно сделать по одному шаблону на каждую картинку в точности, чтобы это была единая дизайн-система. Учти маленькие слова по бокам, посмотри, как все эти выноски сделаны, есть ли где-то крупный текст в заголовке и средний тоже это учти, старайся держаться одного дизайн шрифта, вот найди примерно похожий, вот смотри везде, где картинки — это картинки, если текст над ними, то слоты под картинки нужно обозначить, это слоты под картинки, над ними текст. Вот эти маленькие всякие по бокам, по отступам, по полям, мелкий текст тоже везде сохранить.\n\nTEMPLATE COUNT / MAPPING:\nпо одному на примере\n\nCONTENT:\nкак в примере\n\nVARIATION REQUEST (optional):\n[How templates should differ from one another.]\n\nADDITIONAL CONSTRAINTS (optional):\n[Anything to preserve, avoid, or prioritize.]\n\nVISUAL RULES\n- Follow the approved design system. Treat user instructions for this task as the specific brief; if they conflict with the system, report the conflict only if the output format allows it. Do not silently redefine the system.\n- Analyze each supplied screenshot/frame separately. Ignore app chrome, cursors, selection outlines, filenames, and UI not intended as artwork.\n- Match the reference's composition, hierarchy, image/text locations, relative scale, alignment, crop, negative space, and visual weight as closely as practical. Preserve the underlying idea, not accidental screenshot artifacts.\n- If a reference is not 16:9, recompose its content into 16:9: retain the key subject and hierarchy, rearrange or scale elements as needed, and do not stretch the source image or clip meaningful text. Make deliberate crops only for imagery and only when the focal subject remains clear.\n- Use attached image assets only when their intended role is clear. In HTML, represent replaceable imagery as Sandbox media slots; do not invent file paths, remote URLs, or embedded image data. Keep each image slot in the reference's corresponding position and proportion.\n- Use editable text for all text intended to be replaceable. Give every editable element a unique data-slot and an appropriate data-role. Do not make text part of a background image.\n- Make genuinely different compositions when requested; changing only color or copy is not a compositional variation.\n\nSANDBOX JSON / HTML CONTRACT\nReturn a strict JSON array only: no Markdown, comments, explanation, or code fences. Each item must be a JSON object with exactly these fields:\n{\n  \"tpl\": \"uniqueCamelCaseId\",\n  \"family\": \"nav | hero | statement | about | services | process | formats | projectCover | projectContent | gallery | contact | footer\",\n  \"group\": \"Каркас | Секции | Обложка проекта | Контент проекта | Галерея проекта\",\n  \"label\": \"clear Russian template name\",\n  \"code\": \"short unique code\",\n  \"icon\": \"one or two suitable symbols\",\n  \"kind\": \"static or auto\",\n  \"single\": false,\n  \"desc\": \"short description of structure and purpose\",\n  \"styleSystem\": \"default\",\n  \"html\": \"valid one-line HTML string\"\n}\n\nHTML requirements:\n- Use one root <section class=\"sv-section\"> with inline style including aspect-ratio:16/9; width:100%; overflow:hidden; display:flex; and an appropriate background color.\n- Use an inner <div class=\"sv-inner\"> as the layout container. Keep all meaningful text inside the frame; intentional image crop is allowed.\n- Every replaceable text node must include data-sb-editable, a unique data-slot, and an appropriate data-role chosen from title, subtitle, body, smallMeta, overline, link, statement, label.\n- Every replaceable image/media region must include class=\"sv-media\", data-sb-media, a unique data-slot, data-kind=\"image\", and inline style with an appropriate aspect-ratio and background color. Do not use an actual remote URL.\n- Use data-sb-repeat=\"listName\" for a genuinely repeatable item/card group; if present, set kind to \"auto\". Otherwise use kind \"static\".\n- Use self-contained inline styles with flex/grid and explicit gaps/padding. No external CSS, scripts, fonts, or dependencies. Keep the HTML one line and correctly escape it as a JSON string.\n- Use the exact group values listed above. Use the listed family category that best fits; do not invent new fields.\n- Keep styleSystem=\"default\" unless the user provides a registered Sandbox style key. The visual design system is specified in the DESIGN SYSTEM block, not by inventing a styleSystem key.\n\nFINAL CHECK BEFORE RESPONDING\n- Valid JSON array; every object has all listed fields and valid values.\n- Unique tpl IDs and unique data-slot values within each template.\n- Root frame is 16:9; HTML is a single-line string.\n- Text/media markers are present and correctly used; repeatable items use kind=\"auto\".\n- Reference composition and approved design system are respected; no invented assets or factual copy.\n- Output JSON only.",
+      "link": "",
+      "color": "#ff5b6a",
+      "createdAt": 1791715133791,
+      "styleSystem": null
+    }
+  }
+}

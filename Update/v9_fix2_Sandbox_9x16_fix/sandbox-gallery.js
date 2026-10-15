@@ -25,7 +25,11 @@
 
   const DESKTOP_WIDTH = 1280;
   const GAP = 16;
-  const COLUMN_MIN = 1, COLUMN_MAX = 3, COLUMN_DEF = 2;
+  // Масштаб «Карты»: целевая высота строки H, px (Justified Gallery). Ширина каждой миниатюры = H × (fw/fh) её формата.
+  const GAL_W = { min:180, max:900, def:500, step:20 };
+  const ROW_TOL = 0.2;                // допустимая высота растянутой строки: ±20% от H
+  const ROW_LO = 1-ROW_TOL, ROW_HI = 1+ROW_TOL;
+  const FALLBACK_RATIO = 16/9;        // если формат не найден ни в одном источнике (явный fallback, см. formatCensus)
 
   const gstate = {
     mode: 'single', // 'single' | 'grid'
@@ -35,7 +39,7 @@
     fitRO: null,
     fitRaf: 0,
     railCollapsed: false,
-    columns: COLUMN_DEF,
+    cardW: GAL_W.def,   // целевая высота строки H
     savedScroll: 0,     // Этап 2: позиция прокрутки «Карты» при уходе в одиночный просмотр
     cache: new Map(),   // Этап 1: id -> {html, stage} готовый превью-узел
     sig: null,          // Этап 1: сигнатура набора карточек
@@ -104,16 +108,18 @@
         #galRoot .gal-count{font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ui-muted);margin-right:auto}
         #galRoot .gal-tools input{font:inherit;font-size:11px;padding:7px 9px;border-radius:7px;border:1px solid var(--ui-line);background:var(--ui-panel-2);color:var(--ui-text)}
         #galRoot .gal-scroll{flex:1;min-height:0;overflow:auto;padding:16px}
-        #galRoot .gal-grid{display:grid;grid-template-columns:repeat(var(--gal-cols,${COLUMN_DEF}),minmax(0,1fr));gap:${GAP}px;max-width:1900px;margin:0 auto;align-items:start}
-        #galRoot .gal-card{background:#151a21;border:1px solid #2d3440;border-radius:0;overflow:hidden;min-width:0;align-self:start;cursor:pointer;position:relative;user-select:none;-webkit-user-select:none}
+        #galRoot .gal-grid{position:relative;max-width:1900px;margin:0 auto}
+        #galRoot .gal-card{background:#151a21;border:1px solid #2d3440;border-radius:0;overflow:hidden;box-sizing:border-box;cursor:pointer;position:absolute;user-select:none;-webkit-user-select:none}
         #galRoot .gal-card.sel{border-color:var(--ui-accent);box-shadow:0 0 0 1px var(--ui-accent)}
         #galRoot .gal-card.active{box-shadow:0 0 0 1px var(--ui-accent), inset 3px 0 0 var(--ui-accent-2)}
-        #galRoot .gal-frame{width:100%;overflow:hidden;background:#151a21;position:relative}
+        #galRoot .gal-frame{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;background:#151a21}
         #galRoot .gal-scale{width:${DESKTOP_WIDTH}px;transform-origin:top left}
         #galRoot .gal-loading{height:160px;display:flex;align-items:center;justify-content:center;color:#717b8c;font:11px Arial,Helvetica,sans-serif}
         #galRoot .gal-error{padding:18px;background:#2b171b;color:#ff9ca5;font:11px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap;min-height:120px}
-        #galRoot .gal-empty{padding:60px 20px;text-align:center;color:#8f99aa;font:12px Arial,Helvetica,sans-serif;grid-column:1/-1}
+        #galRoot .gal-empty{padding:60px 20px;text-align:center;color:#8f99aa;font:12px Arial,Helvetica,sans-serif}
         #galRoot .gal-colbar{flex:0 0 auto;display:flex;justify-content:center;align-items:center;padding:8px 16px;border-top:1px solid var(--ui-line);background:var(--ui-panel)}
+        #galRoot .gal-size{display:flex;align-items:center;gap:10px;color:var(--ui-muted);font:700 11px/1 ui-monospace,Menlo,monospace}
+        #galRoot .gal-size input{width:240px;accent-color:var(--ui-accent-2)}
         #galRoot .gal-cols{display:flex;align-items:center;gap:2px;background:var(--ui-panel-2);border:1px solid var(--ui-line);border-radius:8px;padding:3px}
         #galRoot .gal-cols button{min-width:34px;height:28px;padding:0 9px;border-radius:6px;color:var(--ui-muted);font-size:11px;font-weight:700;cursor:pointer}
         #galRoot .gal-cols button:hover{color:var(--ui-text);background:#232935}
@@ -143,20 +149,17 @@
         <div class="gal-scroll" data-gal-scroll>
           <div class="gal-grid" data-gal-grid></div>
         </div>
-        <div class="gal-colbar" title="Количество колонок в «Карте»">
-          <div class="gal-cols" role="group" aria-label="Количество колонок">
-            <button type="button" data-gal-cols="3" aria-label="Три колонки">3</button>
-            <button type="button" data-gal-cols="2" aria-label="Две колонки">2</button>
-            <button type="button" data-gal-cols="1" aria-label="Одна колонка">1</button>
-          </div>
+        <div class="gal-colbar" title="Масштаб миниатюр в «Карте»">
+          <label class="gal-size">Масштаб <input type="range" data-gal-size min="${GAL_W.min}" max="${GAL_W.max}" step="${GAL_W.step}" value="${GAL_W.def}"> <span data-gal-size-val>${GAL_W.def}px</span></label>
         </div>`;
       stage.appendChild(root);
       root.querySelector('[data-gal-search]').oninput=e=>{
         gstate.query=e.target.value||'';
         rebuild(true);
       };
+      root.querySelector('[data-gal-size]').oninput=e=>setCardWidth(+e.target.value);
       root.querySelectorAll('[data-gal-cols]').forEach(btn=>{
-        btn.onclick=()=>setColumns(+btn.getAttribute('data-gal-cols'));
+        btn.onclick=()=>setCardWidth(+btn.getAttribute('data-gal-cols'));
       });
       // Двойной клик по карточке → одиночный просмотр этого шаблона (Этап 2)
       root.querySelector('[data-gal-scroll]').addEventListener('dblclick',e=>{
@@ -256,21 +259,130 @@
     root.querySelectorAll('[contenteditable]').forEach(x=>x.removeAttribute('contenteditable'));
   }
 
-  /* Точная посадка: width=clientWidth рамки, масштаб = avail/1280 (без cap 1.0 —
-     при приближении карточка заполняет ширину, справа не остаётся белой полосы),
-     высота — фактическая высота отмасштабированного контента, без округлений
-     (ceil давал белый зазор снизу у тёмных шаблонов). */
+  /* Масштаб сцены: ширина рамки / 1280 (белой полосы справа нет).
+     Размер рамки задаёт раскладка строк (layoutGrid), а не высота HTML шаблона. */
   function fitCard(card){
     const frame=card.querySelector('.gal-frame');
     const scaleHost=card.querySelector('.gal-scale');
-    const stageEl=card.querySelector('.sb-gal-stage');
-    if(!frame||!scaleHost||!stageEl) return;
+    if(!frame||!scaleHost) return;
     const avail=Math.max(1,frame.clientWidth||1);
-    const scale=avail/DESKTOP_WIDTH;
-    scaleHost.style.transform=`scale(${scale})`;
-    const h=stageEl.getBoundingClientRect().height; // уже с учётом transform
-    const hh=(h>2?h:160)+'px';
-    if(frame.style.height!==hh) frame.style.height=hh;
+    scaleHost.style.transform=`scale(${avail/DESKTOP_WIDTH})`;
+  }
+
+  /* ---------- Формат карточки (Justified Gallery) ----------
+     Приоритет: 1) recomposeFrame результата адаптации (формат кодирован в ключе кэша RC
+     и в RecomposeCore.FORMATS); 2) canvas шаблона (эталон формата); 3) aspect шаблона;
+     4) явный fallback 16:9 — с пометкой в formatCensus(). */
+  function parseAspect(s){
+    const m=/^\s*(\d+(?:\.\d+)?)\s*[:\/x×]\s*(\d+(?:\.\d+)?)\s*$/.exec(String(s==null?'':s));
+    if(!m) return null;
+    const a=+m[1], b=+m[2];
+    return (a>0 && b>0) ? {r:a/b, fmt:a+':'+b} : null;
+  }
+  function cardFormat(id){
+    const {LIB}=host();
+    const t=LIB[id];
+    if(!t) return {r:FALLBACK_RATIO, src:'fallback', fmt:null};
+    const v=viewOf(id,t);
+    if(v && typeof v.key==='string' && v.key.indexOf('rc|')===0){
+      const fmt=v.key.split('|').pop();
+      const F=(window.RecomposeCore && window.RecomposeCore.FORMATS)||{};
+      const f=F[fmt];
+      if(f && f.w>0 && f.h>0) return {r:f.w/f.h, src:'recomposeFrame', fmt};
+    }
+    if(t.canvas && t.canvas.width>0 && t.canvas.height>0)
+      return {r:t.canvas.width/t.canvas.height, src:'canvas', fmt:null};
+    const a=parseAspect(t.aspect);
+    if(a) return {r:a.r, src:'aspect', fmt:a.fmt};
+    return {r:FALLBACK_RATIO, src:'fallback', fmt:null};
+  }
+
+  /* Состав строк: ряд набирается из подряд идущих карточек. Для k карточек высота растянутой строки
+     h_k = (W − G·(k−1)) / Σr. Берём k с h_k в [ROW_LO·H, ROW_HI·H] и h_k ближе к H.
+     Последний ряд (всё оставшееся помещается при натуральной H) — H, выравнивание влево, без растяжения.
+     Если допустимого k нет — ряд в натуральной высоте H, сколько помещается; одиночная карточка шире W ужимается до W. */
+  function justifyRows(rs, W, H, G){
+    const rows=[];
+    let i=0;
+    const n=rs.length;
+    while(i<n){
+      const rem=rs.slice(i);
+      const natSum=rem.reduce((s,r)=>s+H*r,0)+G*(rem.length-1);
+      if(natSum<=W){
+        rows.push({from:i, to:n, h:H, ws:rem.map(r=>H*r), stretched:false});
+        break;
+      }
+      let best=null, sumR=0;
+      // одиночная карточка не растягивается: k≥2; шире контейнера — ужимается до W ниже
+      for(let k=1;k<=rem.length;k++){
+        if(k===1){ sumR+=rem[0]; continue; }
+        sumR+=rem[k-1];
+        const h=(W-G*(k-1))/sumR;
+        if(h>=ROW_LO*H && h<=ROW_HI*H && (!best || Math.abs(h-H)<Math.abs(best.h-H))) best={k, h};
+      }
+      if(best){
+        rows.push({from:i, to:i+best.k, h:best.h, ws:rem.slice(0,best.k).map(r=>best.h*r), stretched:true});
+        i+=best.k;
+        continue;
+      }
+      let k=0, acc=0;
+      while(k<rem.length){
+        const add=H*rem[k]+(k?G:0);
+        if(k>0 && acc+add>W) break;
+        acc+=add; k++;
+      }
+      let h=H;
+      const ws=rem.slice(0,k).map(r=>H*r);
+      if(k===1 && ws[0]>W){ h=W/rem[0]; ws[0]=W; }
+      rows.push({from:i, to:i+k, h, ws, stretched:false});
+      i+=k;
+    }
+    return rows;
+  }
+
+  // Раскладка: абсолютное позиционирование карточек по строкам (DOM-структура карточек не меняется)
+  function layoutGrid(){
+    const grid=document.querySelector('#galRoot [data-gal-grid]');
+    if(!grid) return;
+    const cards=[...grid.querySelectorAll(':scope > .gal-card')];
+    const W=grid.clientWidth;
+    if(!cards.length || !W) { grid.style.height='0px'; return; }
+    const sc=document.querySelector('#galRoot [data-gal-scroll]');
+    // Высота ряда не выше доступной области просмотра (значение ползунка при этом не меняется)
+    const avail=sc ? sc.clientHeight-2*16 : Infinity;
+    const H=Math.max(GAL_W.min, Math.min(gstate.cardW, avail));
+    const fmts=cards.map(c=>cardFormat(c.dataset.id||''));
+    const rows=justifyRows(fmts.map(f=>f.r), W, H, GAP);
+    let y=0;
+    rows.forEach(row=>{
+      let x=0;
+      for(let k=0;k<row.to-row.from;k++){
+        const card=cards[row.from+k];
+        const w=row.ws[k];
+        card.style.left=x.toFixed(2)+'px';
+        card.style.top=y.toFixed(2)+'px';
+        card.style.width=w.toFixed(2)+'px';
+        card.style.height=row.h.toFixed(2)+'px';
+        x+=w+GAP;
+      }
+      y+=row.h+GAP;
+    });
+    grid.style.height=Math.max(0,y-GAP).toFixed(2)+'px';
+    gstate.fallbackIds=cards.filter((c,i)=>fmts[i].src==='fallback').map(c=>c.dataset.id);
+    cards.forEach(c=>{ if(c.querySelector('.sb-gal-stage')) fitCard(c); });
+  }
+
+  /* Перепись форматов по всей библиотеке: какой источник используется и где формат не найден. */
+  function formatCensus(){
+    const L=host().LIB;
+    const out={total:0, bySource:{}, fallback:[]};
+    Object.keys(L).forEach(id=>{
+      const f=cardFormat(id);
+      out.total++;
+      out.bySource[f.src]=(out.bySource[f.src]||0)+1;
+      if(f.src==='fallback') out.fallback.push(id);
+    });
+    return out;
   }
 
   function fitAll(){
@@ -385,26 +497,25 @@
     document.querySelectorAll('#galRoot .gal-card').forEach(c=>{ gstate.observer.observe(c); gstate.unmount.observe(c); });
   }
 
-  /* ---------- Колонки «Карты»: только 3 / 2 / 1 ---------- */
+  /* ---------- Масштаб «Карты» (целевая высота строки) ---------- */
 
-  function setColumns(cols){
-    gstate.columns=Math.max(COLUMN_MIN,Math.min(COLUMN_MAX,Number(cols)||COLUMN_DEF));
+  function setCardWidth(px){
+    gstate.cardW=Math.max(GAL_W.min,Math.min(GAL_W.max,Math.round(Number(px)||GAL_W.def)));
     applyColumns();
   }
 
   function applyColumns(){
     const grid=document.querySelector('#galRoot [data-gal-grid]');
     if(!grid) return;
-    grid.style.setProperty('--gal-cols',String(gstate.columns));
-    document.querySelectorAll('#galRoot [data-gal-cols]').forEach(btn=>{
-      btn.classList.toggle('on',+btn.getAttribute('data-gal-cols')===gstate.columns);
-    });
-    fitAll();
+    const r=document.querySelector('#galRoot [data-gal-size]');
+    if(r && +r.value!==gstate.cardW) r.value=String(gstate.cardW);
+    const v=document.querySelector('#galRoot [data-gal-size-val]');
+    if(v) v.textContent=gstate.cardW+'px';
+    layoutGrid();
   }
 
-  function cycleColumns(delta){
-    const next=Math.max(COLUMN_MIN,Math.min(COLUMN_MAX,gstate.columns+delta));
-    if(next!==gstate.columns) setColumns(next);
+  function stepCardWidth(dir){
+    setCardWidth(gstate.cardW+dir*GAL_W.step);
   }
 
   /* ---------- Построение/переключение ---------- */
@@ -447,6 +558,7 @@
     setupObserver();
     const cards=[...grid.querySelectorAll('.gal-card')];
     cards.forEach(c=>observeFit(c));
+    if(gstate.fallbackIds && gstate.fallbackIds.length) console.warn('Карта: формат не найден, принят fallback 16:9:', gstate.fallbackIds);
     // карточки с устаревшим HTML (включили/выключили метод) — пересобрать
     cards.forEach(c=>{ const id=c.dataset.id, st=c.querySelector('.sb-gal-stage');
       if(st && id && L[id] && (!gstate.cache.get(id) || gstate.cache.get(id).html!==viewOf(id,L[id]).key)){
@@ -515,6 +627,7 @@
   function setRailCollapsed(on){
     gstate.railCollapsed=!!on;
     document.body.classList.toggle('gal-rail-off', gstate.railCollapsed);
+    if(gstate.mode==='grid') requestAnimationFrame(()=>applyColumns());
     const btn=document.getElementById('btnRailToggle');
     if(btn) btn.textContent=gstate.railCollapsed?'›':'‹';
   }
@@ -557,13 +670,13 @@
       const k=e.key;
       if(k==='+' || k==='=' || k==='-'){
         e.preventDefault();
-        cycleColumns(k==='+' || k==='=' ? -1 : 1);
+        stepCardWidth(k==='+' || k==='=' ? 1 : -1);
       }
     });
 
     window.addEventListener('resize',()=>{
       if(gstate.mode!=='grid') return;
-      fitAll();
+      applyColumns();
     });
     if(document.fonts && document.fonts.ready){
       document.fonts.ready.then(()=>fitAll());
@@ -574,7 +687,7 @@
   else init();
 
   window.SB_Gallery={
-    setMode, rebuild, setRailCollapsed, fitAll, setColumns, cycleColumns,
+    setMode, rebuild, setRailCollapsed, fitAll, setCardWidth, stepCardWidth, formatCensus, layoutGrid,
     get mode(){ return gstate.mode; },
     get state(){ return gstate; }
   };

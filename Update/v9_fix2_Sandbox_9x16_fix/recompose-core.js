@@ -114,17 +114,10 @@ const ADAPT_API = {
   errors: () => ADAPT_ERRORS.slice()
 };
 
-// Реестр форматов. В UI выведен только 16:9. Новый формат — запись сюда + проверка targetCss.
-const FORMATS = {
-  // w×h — рабочий кадр алгоритма (1600×900, как в прототипе). previewW/H — опорный размер предпросмотра.
-  // contractCanvas — эталонный холст Frame Contract (система координат промта); алгоритмом не используется.
-  '16:9': { id:'16:9', label:'16:9', w:1600, h:900, previewW:1280, previewH:720, contractCanvas:{width:1920,height:1080}, validated:true },
-  // новые форматы: размеры — предложение конфигурации; методы для них ещё не проверены (validated:false)
-  '9:16': { id:'9:16', label:'9:16', w:900, h:1600, previewW:720, previewH:1280, contractCanvas:{width:1080,height:1920}, validated:false },
-  '1:1':  { id:'1:1',  label:'1:1',  w:1200, h:1200, previewW:960, previewH:960, contractCanvas:{width:1080,height:1080}, validated:false },
-  '4:3':  { id:'4:3',  label:'4:3',  w:1200, h:900,  previewW:960, previewH:720, contractCanvas:{width:1440,height:1080}, validated:false }
-};
-const W = 1600, H = 900;
+// Реестр форматов — ЕДИНЫЙ ИСТОЧНИК: window.SB_FORMATS (Sandbox_Content.html). Здесь только кэш рабочих кадров,
+// который заполняет SB_syncFormats() (recompose-sandbox.js). Новых записей в этой таблице не вводить.
+const FORMATS = {};
+const W = 1600, H = 900;   // рабочий кадр 16:9 алгоритма (= SB_FORMATS '16:9'.work)
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = () => null; // UI-функции прототипа в движке не используются
 
@@ -230,9 +223,9 @@ function targetDoc(html,fmt){html=vwToPx(vhToPx(stripRemoteFontImports(html)),fm
 function smartCssFixes(doc,layout,mod,fmt,t){const sec=pickRoot(doc);if(sec){setInline(sec,{position:'absolute',left:'0',top:'0',width:fmt.w+'px',height:fmt.h+'px','min-height':'0','max-height':fmt.h+'px',overflow:'hidden','box-sizing':'border-box'});const inner=sec.querySelector('.sv-inner');if(inner){setInline(inner,{width:'100%',height:'100%','max-width':'none','min-height':'0','max-height':'100%',margin:'0','box-sizing':'border-box'});}}
  let css=targetCss(layout,mod,fmt);if(fmt&&fmt.h>fmt.w)css+='\n'+portraitCss(layout,mod.id,t);createStyle(doc,css);}
 
-function portraitCss(layout, method, t) {
-  const id = String(t?.tpl || "").toLowerCase();
-  let css = `
+function portraitCss(layout,method,t){
+ const id=String(t?.tpl||'').toLowerCase();
+ let css=`
 html,body{width:900px!important;min-width:900px!important;height:1600px!important;min-height:1600px!important;max-height:1600px!important;overflow:hidden!important}
 body{overflow:hidden!important}
 .sv-section{width:900px!important;height:1600px!important;min-height:1600px!important;max-height:1600px!important;padding:58px 52px!important;overflow:hidden!important}
@@ -245,13 +238,11 @@ body{overflow:hidden!important}
 .sv-media,[data-sb-media]{max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
 img,video,svg{max-width:100%!important;height:auto}
 `;
-  if (method === "compact" || method === "fit") {
-    css += `.sv-section{padding:44px 42px!important}.sv-inner{gap:16px!important}.sv-inner [data-role="title"],.sv-inner [data-role="statement"]{font-size:clamp(29px,5.5vw,50px)!important;line-height:1.04!important}.sv-inner [data-role="body"],.sv-inner p{font-size:14px!important;line-height:1.42!important}`;
-  }
-  if (method === "smart") css += `.sv-section{padding:58px 52px!important}.sv-inner{gap:22px!important}`;
-  if (method === "split") css += `.sv-section{padding:50px 46px!important}.sv-inner{gap:18px!important}`;
-  if (id.includes("aboutmanifestostacked")) {
-    css += `
+ // Method baseline: portrait compositions should stack, not retain desktop columns.
+ if(method==='compact'||method==='fit') css+=`.sv-section{padding:44px 42px!important}.sv-inner{gap:16px!important}.sv-inner [data-role="title"],.sv-inner [data-role="statement"]{font-size:clamp(29px,5.5vw,50px)!important;line-height:1.04!important}.sv-inner [data-role="body"],.sv-inner p{font-size:14px!important;line-height:1.42!important}`;
+ if(method==='smart') css+=`.sv-section{padding:58px 52px!important}.sv-inner{gap:22px!important}`;
+ if(method==='split') css+=`.sv-section{padding:50px 46px!important}.sv-inner{gap:18px!important}`;
+ if(id.includes('aboutmanifestostacked')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:20px!important}
 .rc-about-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr) auto!important;gap:20px!important;align-items:start!important}
 .rc-about-copy{display:flex!important;flex-direction:column!important;gap:14px!important;min-width:0!important}
@@ -262,9 +253,7 @@ img,video,svg{max-width:100%!important;height:auto}
 .rc-about-footer>div{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important}
 .sv-inner>div:nth-child(3)[data-sb-media],.sv-inner>.sv-media{max-height:340px!important}
 `;
-  }
-  if (id.includes("servicesrepeatrows")) {
-    css += `
+ if(id.includes('servicesrepeatrows')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:26px!important}
 .sv-inner>div:first-child{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:8px!important;margin:0!important}
 .sv-inner>div:first-child [data-role="title"]{font-size:clamp(39px,6.5vw,58px)!important}
@@ -273,17 +262,13 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner [data-sb-repeat]>div h3{grid-column:2!important;font-size:clamp(24px,4.6vw,38px)!important;line-height:1.05!important}
 .sv-inner [data-sb-repeat]>div p{grid-column:2!important;margin-top:4px!important}
 `;
-  }
-  if (id.includes("contactsplit")) {
-    css += `
+ if(id.includes('contactsplit')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:30px!important}
 .sv-inner>div:first-child,.sv-inner>div:nth-child(2){width:100%!important;min-width:0!important;gap:14px!important;padding-top:0!important}
 .sv-inner [data-role="title"]{font-size:clamp(46px,7vw,62px)!important}
 .sv-inner [data-role="body"]{max-width:100%!important;font-size:16px!important;line-height:1.5!important}
 `;
-  }
-  if (id.includes("swisstypographicmatrix")) {
-    css += `
+ if(id.includes('swisstypographicmatrix')) css+=`
 .sv-inner>div:first-child{display:flex!important;flex-direction:column!important;gap:20px!important;padding:20px!important;height:100%!important;overflow:hidden!important}
 .sv-inner>div:first-child>div:nth-child(1){display:flex!important;flex-wrap:wrap!important;gap:8px 18px!important;padding-bottom:12px!important}
 .sv-inner>div:first-child>div:nth-child(2){margin:0!important}
@@ -291,9 +276,7 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner>div:first-child>div:nth-child(3){display:flex!important;flex-direction:column!important;gap:18px!important;margin:0!important;min-height:0!important;overflow:hidden!important}
 .sv-inner>div:first-child>div:nth-child(3)>.sv-media{width:100%!important;aspect-ratio:16/9!important;max-height:320px!important}
 `;
-  }
-  if (id.includes("swisstypoindexhero")) {
-    css += `
+ if(id.includes('swisstypoindexhero')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;gap:20px!important}
 .sv-inner>div:first-child{display:flex!important;flex-wrap:wrap!important;gap:12px!important;align-items:flex-end!important;padding-bottom:12px!important}
 .sv-inner>div:nth-child(2) h1{font-size:clamp(43px,7.3vw,66px)!important;line-height:.98!important;letter-spacing:-.05em!important}
@@ -303,9 +286,7 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner>div:nth-child(3) .sv-media{width:100%!important;aspect-ratio:4/3!important;max-height:230px!important}
 .sv-inner>div:nth-child(3) p{font-size:12px!important;line-height:1.35!important}
 `;
-  }
-  if (id.includes("showreelsplitdirections")) {
-    css += `
+ if(id.includes('showreelsplitdirections')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:26px!important}
 .sv-inner>div:first-child{width:100%!important;min-width:0!important;gap:14px!important}
 .sv-inner>div:first-child [data-sb-repeat]{display:flex!important;flex-direction:column!important;gap:9px!important}
@@ -313,9 +294,7 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner>div:first-child p{margin-top:4px!important}
 .sv-inner>.sv-media,.sv-inner>[data-sb-media]{width:100%!important;aspect-ratio:16/9!important;max-height:420px!important}
 `;
-  }
-  if (id.includes("showreelmicrogrid")) {
-    css += `
+ if(id.includes('showreelmicrogrid')) css+=`
 .sv-inner{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr)!important;gap:20px!important}
 .sv-inner>div:first-child{margin:0!important;padding-bottom:12px!important}
 .sv-inner>div:nth-child(2){min-height:0!important;display:block!important;overflow:hidden!important}
@@ -323,9 +302,7 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner [data-sb-repeat]>.sv-media{width:100%!important;aspect-ratio:16/9!important;max-height:450px!important}
 .sv-inner [data-sb-repeat]>div:not(.sv-media){display:flex!important;flex-direction:column!important;gap:8px!important}
 `;
-  }
-  if (id.includes("showreelasymmetricgrid")) {
-    css += `
+ if(id.includes('showreelasymmetricgrid')) css+=`
 .rc-asym{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:auto auto auto!important;gap:14px!important;align-items:start!important}
 .rc-asym>*{min-width:0!important;max-width:100%!important;margin:0!important}
 .rc-asym>*:nth-child(1){grid-column:1/-1!important;grid-row:1!important;display:flex!important;align-items:center!important}
@@ -337,27 +314,20 @@ img,video,svg{max-width:100%!important;height:auto}
 .rc-asym>*:nth-child(3) p{font-size:13px!important;margin:0!important}
 .rc-asym>*:nth-child(4){grid-column:2!important;grid-row:3!important;display:flex!important;align-items:flex-start!important}
 `;
-  }
-  if (id.includes("showreelstatementdirections") || id.includes("statementfullbleed") || id.includes("converted169")) {
-    css += `
+ if(id.includes('showreelstatementdirections')||id.includes('statementfullbleed')||id.includes('converted169')) css+=`
 .sv-inner{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:24px!important}
 .sv-inner [data-role="statement"]{font-size:clamp(38px,6.8vw,64px)!important;line-height:1.08!important;letter-spacing:-.035em!important;max-width:100%!important}
 .sv-inner [style*="margin-bottom"]{margin-bottom:0!important}
 .sv-inner>div{min-width:0!important}
 `;
-  }
-  if (layout === "genericSplit" || layout === "generic") {
-    css += `
+ if(layout==='genericSplit'||layout==='generic') css+=`
 .sv-inner.rc-generic-split{display:flex!important;flex-direction:column!important;gap:24px!important}
 .sv-inner .sv-media,.sv-inner [data-sb-media]{width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;max-height:420px!important}
 `;
-  }
-  if (method === "split") {
-    css += `.sv-section>.sv-inner{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:22px!important}.sv-section>.sv-inner>*{width:100%!important;min-width:0!important}`;
-  }
-  css += `
-[data-sb-format-inner]{position:static!important;left:auto!important;top:auto!important;width:900px!important;height:1600px!important;transform:none!important;overflow:visible!important}`;
-  return css;
+ // Vertical split always stacks semantic pieces; don't force columns in the portrait frame.
+ if(method==='split') css+=`.sv-section>.sv-inner{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:22px!important}.sv-section>.sv-inner>*{width:100%!important;min-width:0!important}`;
+ css+=`\n[data-sb-format-inner]{position:static!important;left:auto!important;top:auto!important;width:900px!important;height:1600px!important;transform:none!important;overflow:visible!important}`;
+ return css;
 }
 
 
@@ -508,14 +478,9 @@ function rcFragment(doc, id, fmt){
   const b = doc.body.cloneNode(true);
   b.querySelectorAll('style,script,link').forEach(n=>n.remove());
   const bodyStyle = vwToPx(doc.body.getAttribute('style')||'', fmt.w).replace(/"/g,"'");
-  // Портретный кадр (h > w): ширина ограничена высотой области предпросмотра, пропорция сохраняется.
-  // Ландшафтные форматы выводятся без изменений.
-  const portrait = fmt.h > fmt.w;
-  const frameW = portrait ? `min(100%, calc((100vh - 230px) * ${fmt.w} / ${fmt.h}))` : '100%';
-  const frameBox = portrait ? 'margin:0 auto;' : '';
-  return `<div class="rc-frame" data-rc-id="${id}" data-rc-format="${fmt.id}" style="position:relative;width:${frameW};${frameBox}aspect-ratio:${fmt.w}/${fmt.h};overflow:hidden;box-sizing:border-box;container-type:inline-size">`
+  return `<div class="rc-frame" data-rc-id="${id}" data-rc-format="${fmt.id}" style="position:relative;width:100%;aspect-ratio:${fmt.w}/${fmt.h};overflow:hidden;box-sizing:border-box;container-type:inline-size">`
     + `<style>${scopeCss(vwToPx(css,fmt.w), scope, rootScope)}</style>`
-    + `<div class="rc-stage" style="position:absolute;left:0;top:0;width:${fmt.w}px;height:${fmt.h}px;transform-origin:0 0;transform:scale(${k});transform:scale(calc(100cqw / ${fmt.w}px));${bodyStyle}">${b.innerHTML}</div>`
+    + `<div class="rc-stage" style="position:absolute;left:0;top:0;width:${fmt.w}px;height:${fmt.h}px;transform-origin:0 0;${bodyStyle}">${b.innerHTML}</div>`
     + `</div>`;
 }
 

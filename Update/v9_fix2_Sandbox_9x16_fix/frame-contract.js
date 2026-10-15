@@ -37,10 +37,7 @@
     st.id='sb-frame-contract-css';
     st.textContent=`
       .sb-frame-contract{width:100%;box-sizing:border-box;position:relative;overflow:hidden;}
-      .sb-frame-16x9{aspect-ratio:16/9;}
-      .sb-frame-9x16{aspect-ratio:9/16;}
-      .sb-frame-4x5{aspect-ratio:4/5;}
-      .sb-frame-5x6{aspect-ratio:5/6;}
+      ${(window.SB_FORMATS||[]).filter(f=>f&&f.className&&f.ratio).map(f=>`.${f.className}{aspect-ratio:${f.ratio.w}/${f.ratio.h};}`).join('\n      ')}
       .sb-frame-contract > .sb-frame-content{width:100%;height:100%;min-width:0;min-height:0;box-sizing:border-box;overflow:hidden;position:relative;}
     `;
     document.head.appendChild(st);
