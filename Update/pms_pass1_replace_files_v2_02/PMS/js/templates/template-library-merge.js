@@ -34,6 +34,33 @@ var PMS_TemplateLibraryMerge = (function () {
   function variantKey(rec) {
     return String((rec && (rec.tpl || rec.id)) || "") + "|" + String((rec && (rec.format || rec.aspect)) || "");
   }
+  // Копия, созданная Sandbox (s2NewStyleFromSelection): полный клон записи с tpl = <база>_NNN
+  // и своим styleSystem. Поля происхождения в экспорте нет, поэтому копия распознаётся только если:
+  // суффикс _NNN, та же база с тем же форматом в пуле и полностью совпадают все остальные данные.
+  // Совпадение только по family/HTML не используется.
+  var SANDBOX_COPY_RE = /^(.+)_(\d{3})$/;
+  // sourceFile — служебная метка источника, добавляемая слиянием (не данные экспорта).
+  var IDENTITY_SKIP = { tpl: 1, id: 1, styleSystem: 1, favorite: 1, sourceFile: 1 };
+  function identityData(rec) {
+    var o = stripMeta(rec);
+    Object.keys(o).forEach(function (k) { if (IDENTITY_SKIP[k]) delete o[k]; });
+    return stable(o);
+  }
+  function formatOf(rec) { return String((rec && (rec.format || rec.aspect)) || ""); }
+  function copyBaseOf(rec, pool) {
+    var m = SANDBOX_COPY_RE.exec(String((rec && rec.tpl) || ""));
+    if (!m) return null;
+    var fmt = formatOf(rec), data = identityData(rec);
+    var base = (pool || []).filter(function (b) {
+      return b && b.tpl === m[1] && formatOf(b) === fmt && !SANDBOX_COPY_RE.test(String(b.tpl)) && identityData(b) === data;
+    })[0];
+    return base ? { tpl: base.tpl, id: base.id } : null;
+  }
+  // Ключ варианта: для копии — ключ её базы, иначе tpl|aspect.
+  function keyOf(rec, pool) {
+    var b = copyBaseOf(rec, pool);
+    return b ? variantKey({ tpl: b.tpl, format: formatOf(rec) }) : variantKey(rec);
+  }
   // Значимое содержимое для сравнения версий (без styleSystem и служебных полей).
   function contentFingerprint(rec) {
     var c = {
@@ -86,6 +113,7 @@ var PMS_TemplateLibraryMerge = (function () {
    */
   function mergeSource(current, incoming, file, legacyFile) {
     var order = [], groups = {};
+    var pool = (current || []).concat(incoming || []);
     function group(key) {
       if (!groups[key]) { groups[key] = { key: key, versions: [], primaryFp: null, prev: null }; order.push(key); }
       return groups[key];
@@ -102,7 +130,7 @@ var PMS_TemplateLibraryMerge = (function () {
 
     // 1. Снимаем членство этого источника со всех существующих записей.
     (current || []).forEach(function (rec) {
-      var key = variantKey(rec), g = group(key);
+      var key = keyOf(rec, pool), g = group(key);
       if (!g.prev) g.prev = rec;
       (prevSig[key] = prevSig[key] || []).push({ rec: rec, vs: versionsOf(rec, legacyFile) });
       if (rec._primaryFp && !g.primaryFp) g.primaryFp = rec._primaryFp;
@@ -120,14 +148,22 @@ var PMS_TemplateLibraryMerge = (function () {
 
     // 2. Добавляем записи источника.
     (incoming || []).forEach(function (it) {
-      var key = variantKey(it), g = group(key), fp = contentFingerprint(it);
+      var key = keyOf(it, pool), g = group(key), fp = contentFingerprint(it);
       var v = g.versions.filter(function (x) { return x.fp === fp; })[0];
       if (!v) {
-        v = { fp: fp, files: [], content: stripMeta(it), styles: {} };
+        var content = stripMeta(it);
+        var base = copyBaseOf(it, pool);
+        if (base) {
+          // Карточка варианта берёт tpl/id базы; копия не создаёт своего tpl в библиотеке.
+          if (content.id === content.tpl) content.id = base.tpl;
+          content.tpl = base.tpl;
+        }
+        v = { fp: fp, files: [], content: content, styles: {} };
         g.versions.push(v);
       }
       if (v.files.indexOf(file) < 0) v.files.push(file);
-      v.styles[file] = uniq(styleNamesOf(it));
+      // Стили накапливаются: одна версия может быть в нескольких подборках/записях одного файла.
+      v.styles[file] = uniq((v.styles[file] || []).concat(styleNamesOf(it)));
     });
 
     // 3. Собираем записи. Версии без источников отбрасываются.
