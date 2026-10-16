@@ -182,6 +182,22 @@
   }
   startRcObserver();
 
+  // Короткие подписи капсул методов — дословно из Sandbox recompose-sandbox.js (RC_SHORT_CODES).
+  // Внутренние ID методов не меняются; код — только отображаемая подпись. Полное имя — в подсказке.
+  const RC_SHORT_CODES={
+    'claud1-balanced':'CL-001','claud1-editorial':'CL-002','claud1-typographic':'CL-003',
+    'gemini-balanced':'GM-001','gemini-editorial':'GM-002','gemini-hero-media':'GM-003','gemini-media-grid':'GM-004','gemini-typographic':'GM-005',
+    'grok-balanced':'GR-001','grok-editorial':'GR-002','grok-hero':'GR-003',
+    'iface-smart':'IF-001','iface-split':'IF-002',
+    'v3011-hero':'V3-001','v3011-type':'V3-002',
+    'compact':'CP-001','fit':'FT-001','smart':'SM-001','split':'SP-001'
+  };
+  function shortCode(id) {
+    if (RC_SHORT_CODES[id]) return RC_SHORT_CODES[id];
+    var pre = String(id || "").replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase();
+    return (pre || "XX") + "-?";
+  }
+
   // методы для формата, совместимые с исходным форматом и сценарием
   function methods(format, scenario, sourceFormat) {
     if (!ready()) return [];
@@ -252,7 +268,8 @@
     var preview = opts.preview ? '<div class="adaptPreview" data-adapt="preview"></div>' : "";
     // Метод выбирается капсулами (data-adapt="capsules"); select оставлен скрытым и остаётся источником значения.
     return '' +
-      '<div class="field"><span>Формат</span><select id="' + prefix + 'Fmt" data-adapt="format"></select></div>' +
+      '<div class="field"><span>Формат</span><div class="adaptCaps" data-adapt="fmtcaps"></div>' +
+      '<select id="' + prefix + 'Fmt" data-adapt="format" style="display:none"></select></div>' +
       '<div class="field"><span>Метод</span><div class="adaptCaps" data-adapt="capsules"></div>' +
         '<select id="' + prefix + 'Mth" data-adapt="method" style="display:none"></select></div>' +
       preview +
@@ -272,28 +289,55 @@
     var statusEl = box.querySelector('[data-adapt="status"]');
     var prevEl = box.querySelector('[data-adapt="preview"]');
     var capsBox = box.querySelector('[data-adapt="capsules"]');
+    var fmtCapsBox = box.querySelector('[data-adapt="fmtcaps"]');
     // кэш статусов рассчитанных комбинаций: ключ = формат × метод × источник × сценарий × хэш исходника
     var ctl = { format: cfg.format || "16:9", method: cfg.method || "", result: null, token: 0, box: box, pending: false, cache: {} };
 
     function capKey(m) {
       var src = cfg.getSource();
-      return [ctl.format, m, cfg.scenario, cfg.sourceFormat(), src ? textHash(src.html) : ""].join("|");
+      return [src ? (src.tpl || "") : "", cfg.sourceFormat(), m, ctl.format, APP, cfg.scenario, src ? textHash(src.html) : ""].join("|");
     }
 
     // Капсулы: заливка = выбранный метод (синий), точка = статус рассчитанной комбинации;
     // не рассчитано — серая точка; ok — зелёная; warning — янтарная; failed — красная.
+    // Статусы капсул (точки): не рассчитано — серая; ok — зелёная; warning — янтарная; failed — красная.
+    // Голубая заливка — только выбранный метод, она не заменяет статус. Выбор не меняет библиотеку.
+    function methodStatus(id) {
+      if (!id) return { status: "ok", reason: "" };
+      var st = ctl.cache[capKey(id)];
+      if (st) return st;
+      return null;
+    }
     function renderCaps() {
+      if (fmtCapsBox) {
+        fmtCapsBox.innerHTML = formats().map(function (f) {
+          var on = ctl.format === f.id;
+          return '<button type="button" class="adaptCap' + (on ? " sel" : "") + '" data-fmt="' + esc(f.id) + '"' +
+            (f.adapt === false ? " disabled" : "") + ' title="' + esc(f.label + (f.adapt === false ? " — не поддерживается" : "")) + '">' +
+            esc(f.label) + "</button>";
+        }).join("");
+        fmtCapsBox.querySelectorAll(".adaptCap").forEach(function (btn) {
+          btn.onclick = function () { if (!btn.disabled && ctl.setFormat) ctl.setFormat(btn.dataset.fmt); };
+        });
+      }
       if (!capsBox) return;
       var list = methods(ctl.format, cfg.scenario, cfg.sourceFormat());
+      var ids = list.map(function (m) { return m.id; });
       var items = [{ id: "", name: "Без адаптации (исходник)", description: "Исходный HTML без пересчёта" }].concat(list);
+      // выбранный метод, которого нет для текущего формата, показываем явно как несовместимый
+      if (ctl.method && ids.indexOf(ctl.method) < 0) {
+        items.push({ id: ctl.method, name: ctl.method, description: "Не совместим с форматом " + formatLabel(ctl.format), incompatible: true });
+      }
       capsBox.innerHTML = items.map(function (m) {
         var sel = ctl.method === m.id;
-        var st = m.id ? ctl.cache[capKey(m.id)] : { status: "ok" };
+        var st = m.incompatible ? { status: "failed", reason: "не совместим с выбранным форматом" } : methodStatus(m.id);
         var stKey = st ? st.status : "none";
-        var stLabel = { ok: "ок", warning: "проверить", failed: "не применимо", none: "не рассчитано" }[stKey];
-        return '<button type="button" class="adaptCap' + (sel ? " sel" : "") + '" data-cap="' + esc(m.id) + '" title="' +
-          esc((m.description || "") + (st && st.reason ? " — " + st.reason : "") + " · " + stLabel) + '">' +
-          '<i class="adaptCapDot st-' + stKey + '"></i>' + esc(m.name) + '</button>';
+        var stLabel = { ok: "ок", warning: "предупреждение", failed: "не применяется", none: "не рассчитано" }[stKey];
+        var label = m.id ? shortCode(m.id) : "Исходник";
+        var tip = (m.name || "") + (m.id ? " · ID " + m.id : "") + (m.description ? "\n" + m.description : "") +
+          "\n" + stLabel + (st && st.reason ? ": " + st.reason : "");
+        return '<button type="button" class="adaptCap' + (sel ? " sel" : "") + '" data-cap="' + esc(m.id) + '" title="' + esc(tip) + '">' +
+          '<i class="adaptCapDot st-' + stKey + '"></i>' + esc(label) + "</button>";
       }).join("");
       capsBox.querySelectorAll(".adaptCap").forEach(function (btn) {
         btn.onclick = function () { ctl.setMethod(btn.dataset.cap || ""); };
@@ -316,7 +360,7 @@
     function fillMethods() {
       var list = methods(ctl.format, cfg.scenario, cfg.sourceFormat());
       var ids = list.map(function (m) { return m.id; });
-      if (ctl.method && ids.indexOf(ctl.method) < 0) ctl.method = ids[0] || "";  // недоступен — первый совместимый
+      // выбранный метод не подменяется при смене формата: несовместимость показывается явно (см. update)
       mthSel.innerHTML = '<option value="">Без адаптации</option>' + list.map(function (m) {
         return '<option value="' + esc(m.id) + '" title="' + esc(m.description) + '">' + esc(m.name) + '</option>';
       }).join("");
@@ -363,6 +407,17 @@
       renderCaps();
       probeAll();
       if (!src) { setStatus("Нет исходного HTML", "warn"); return; }
+      // выбранный метод несовместим с текущим форматом/сценарием: результат не применяется, выбор сохраняется
+      if (ctl.method && ready()) {
+        var okIds = methods(ctl.format, cfg.scenario, cfg.sourceFormat()).map(function (m) { return m.id; });
+        if (okIds.indexOf(ctl.method) < 0) {
+          ctl.result = null; ctl.pending = false;
+          renderPreview(null, src);
+          setStatus("Метод «" + ctl.method + "» не совместим с форматом " + formatLabel(ctl.format) + ". Выберите другой метод или «Без адаптации».", "warn");
+          cfg.onResult && cfg.onResult(null, ctl);
+          return;
+        }
+      }
       if (!ctl.method) {
         ctl.result = null; ctl.pending = false;
         renderPreview(null, src);
