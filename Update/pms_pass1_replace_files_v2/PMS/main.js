@@ -72,6 +72,7 @@ ipcMain.handle('pms:write-text-file', async (event, relativePath, content) => {
 // Чтение библиотек шаблонов: templates/ рекурсивно, только *.js и *.json.
 // Renderer получает список файлов с содержимым, но не произвольный доступ к диску.
 const TEMPLATE_SOURCE_MAX_BYTES = 20 * 1024 * 1024;
+const TEMPLATE_SOURCE_MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 const TEMPLATE_SOURCE_MAX_FILES = 500;
 
 async function collectTemplateSourcePaths(dir, rootReal, out) {
@@ -96,24 +97,45 @@ ipcMain.handle('pms:list-template-sources', async (event) => {
     throw new Error('Чтение библиотек разрешено только из главного окна приложения.');
   }
   const root = path.join(PROJECT_ROOT, 'templates');
-  if (!fs.existsSync(root)) return { files: [] };
+  if (!fs.existsSync(root)) return { files: [], warnings: [] };
+  // Сам каталог templates/ не может быть символьной ссылкой (граница доверия).
+  if ((await fsp.lstat(root)).isSymbolicLink()) {
+    throw new Error('templates/ является символьной ссылкой — чтение отключено.');
+  }
   const rootReal = await fsp.realpath(root);
-  const paths = (await collectTemplateSourcePaths(root, rootReal, [])).sort();
+  const warnings = [];
+  const collected = await collectTemplateSourcePaths(root, rootReal, []);
+  if (collected.length >= TEMPLATE_SOURCE_MAX_FILES) {
+    warnings.push(`Достигнут лимит ${TEMPLATE_SOURCE_MAX_FILES} файлов; остальные не прочитаны.`);
+  }
+  const paths = collected.sort();
   const files = [];
+  let totalBytes = 0;
   for (const full of paths) {
     const relativePath = path.relative(PROJECT_ROOT, full).split(path.sep).join('/');
     try {
+      // Повторная проверка границы непосредственно перед чтением (защита от подмены после обхода).
+      const real = await fsp.realpath(full);
+      if (!(real.startsWith(rootReal + path.sep))) {
+        files.push({ relativePath, error: 'Файл вне templates/ — пропущен.' });
+        continue;
+      }
       const stat = await fsp.stat(full);
       if (stat.size > TEMPLATE_SOURCE_MAX_BYTES) {
         files.push({ relativePath, error: 'Файл больше 20 МБ, пропущен.' });
         continue;
       }
+      if (totalBytes + stat.size > TEMPLATE_SOURCE_MAX_TOTAL_BYTES) {
+        files.push({ relativePath, error: 'Превышен суммарный лимит чтения за обновление (32 МБ), файл не прочитан.' });
+        continue;
+      }
+      totalBytes += stat.size;
       files.push({ relativePath, content: await fsp.readFile(full, 'utf8') });
     } catch (error) {
       files.push({ relativePath, error: String(error && error.message || error) });
     }
   }
-  return { files };
+  return { files, warnings };
 });
 
 async function createWindow() {

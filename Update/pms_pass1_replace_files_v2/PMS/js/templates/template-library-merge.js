@@ -40,6 +40,8 @@ var PMS_TemplateLibraryMerge = (function () {
       html: rec.html || "", format: rec.format || "",
       w: rec.canvas && rec.canvas.w, h: rec.canvas && rec.canvas.h,
       label: rec.label || "", group: rec.group || "", code: rec.code || "", desc: rec.desc || "",
+      icon: rec.icon || "", tags: Array.isArray(rec.tags) ? rec.tags.slice().sort() : [],
+      target: rec.target || "", contractVersion: rec.contractVersion || "",
       kind: rec.kind || "", single: !!rec.single, adaptation: rec.adaptation || null,
       motionStudio: rec.motionStudio || null,
       sandboxMeta: rec.sandboxMeta || null
@@ -53,6 +55,12 @@ var PMS_TemplateLibraryMerge = (function () {
   function uniq(arr) {
     var seen = {}, out = [];
     (arr || []).forEach(function (x) { if (x != null && !seen[x]) { seen[x] = 1; out.push(x); } });
+    return out;
+  }
+  // Ключи объекта в порядке сортировки: порядок загрузки источников не влияет на сохранённые данные.
+  function sortedObject(o) {
+    var out = {};
+    Object.keys(o || {}).sort().forEach(function (k) { out[k] = o[k]; });
     return out;
   }
   function slug(fmt) { return String(fmt || "").replace(/[^0-9a-zA-Z]+/g, "x").replace(/^x+|x+$/g, "") || "v"; }
@@ -147,15 +155,15 @@ var PMS_TemplateLibraryMerge = (function () {
       vs.forEach(function (v) { Object.keys(v.styles).forEach(function (f) { if (v.files.indexOf(f) >= 0) allStyles[f] = v.styles[f]; }); });
       rec.styleSystem = (primary.styles[primary.files[0]] || styleNamesOf(rec))[0] || rec.styleSystem || "default";
       rec._styleNames = uniq([].concat.apply([], Object.keys(allStyles).map(function (f) { return allStyles[f]; })));
-      rec._styles = allStyles;
+      rec._styles = sortedObject(allStyles);
       rec._primaryFp = primary.fp;
       // Порядок версий детерминированный (по отпечатку). Основная версия фиксируется в _primaryFp.
       var vsSorted = vs.slice().sort(function (a, b) { return a.fp < b.fp ? -1 : a.fp > b.fp ? 1 : 0; });
       rec._versions = vsSorted.map(function (v) {
         var c = clone(v.content); c.id = id;
-        return { fp: v.fp, files: v.files.slice(), styles: clone(v.styles), content: c };
+        return { fp: v.fp, files: v.files.slice().sort(), styles: sortedObject(v.styles), content: c };
       });
-      rec._conflict = vs.length > 1 ? { variants: vs.length, files: uniq([].concat.apply([], vs.map(function (v) { return v.files; }))) } : null;
+      rec._conflict = vs.length > 1 ? { variants: vs.length, files: uniq([].concat.apply([], vs.map(function (v) { return v.files; }))).sort() } : null;
       list.push(rec);
       if (!prevRec) report.added.push(key);
       else {

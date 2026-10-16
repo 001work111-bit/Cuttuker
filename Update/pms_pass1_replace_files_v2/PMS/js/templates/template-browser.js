@@ -54,26 +54,65 @@ function evalTemplateLibraryScript(sourceText,fileName,opts){
   fn(window,document);
   flushPendingTemplateLibrary();
 }
+// Выбор стиля для JSON-импорта. window.prompt в Electron не поддерживается, поэтому — встроенное окно.
+// Возвращает Promise: {styleId} | {create:name} | null (отмена).
 function chooseJsonLibraryStyle(){
-  var styles=templateInternalStyles();
-  var msg="Назначить набор стилю (номер):\n"+styles.map(function(st,i){return (i+1)+" — "+st.name}).join("\n")+"\n"+(styles.length+1)+" — создать новый стиль";
-  var v=window.prompt(msg,"1");
-  if(v===null)return null;
-  var n=parseInt(v,10);
-  if(n===styles.length+1){
-    var name=window.prompt("Название нового стиля:","Импорт JSON");
-    if(!name||!String(name).trim())return null;
-    return{create:String(name).trim()};
-  }
-  if(n>=1&&n<=styles.length)return{styleId:styles[n-1].id};
-  alert("Неверный номер стиля. Импорт отменён.");
-  return null;
+  return new Promise(function(resolve){
+    var styles=templateInternalStyles();
+    var done=false;
+    function finish(result){
+      if(done)return;done=true;
+      document.removeEventListener("keydown",onKey,true);
+      if(wrap.parentNode)wrap.parentNode.removeChild(wrap);
+      resolve(result);
+    }
+    function onKey(e){if(e.key==="Escape"){e.stopPropagation();finish(null)}}
+    var wrap=document.createElement("div");
+    wrap.setAttribute("data-pms-json-style","1");
+    wrap.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;font:13px system-ui,sans-serif;";
+    var box=document.createElement("div");
+    box.style.cssText="background:#1b1f27;color:#e6e9ef;border:1px solid #3a4150;border-radius:8px;padding:16px;min-width:340px;display:flex;flex-direction:column;gap:10px;";
+    var title=document.createElement("div");
+    title.textContent="Назначить набор стилю";
+    title.style.cssText="font-weight:600;";
+    var select=document.createElement("select");
+    select.setAttribute("data-role","style-select");
+    styles.forEach(function(st){var o=document.createElement("option");o.value=st.id;o.textContent=st.name;select.appendChild(o)});
+    var newOpt=document.createElement("option");newOpt.value="__new__";newOpt.textContent="Создать новый стиль";select.appendChild(newOpt);
+    var input=document.createElement("input");
+    input.type="text";input.placeholder="Название нового стиля";input.value="Импорт JSON";input.style.display="none";
+    input.setAttribute("data-role","style-name");
+    select.addEventListener("change",function(){input.style.display=select.value==="__new__"?"":"none"});
+    var row=document.createElement("div");row.style.cssText="display:flex;gap:8px;justify-content:flex-end;";
+    var cancel=document.createElement("button");cancel.type="button";cancel.textContent="Отмена";
+    cancel.addEventListener("click",function(){finish(null)});
+    var ok=document.createElement("button");ok.type="button";ok.textContent="Импортировать";ok.setAttribute("data-role","style-ok");
+    ok.addEventListener("click",function(){
+      if(select.value==="__new__"){
+        var name=String(input.value||"").trim();
+        if(!name){input.focus();return}
+        finish({create:name});
+      }else finish({styleId:select.value});
+    });
+    row.appendChild(cancel);row.appendChild(ok);
+    box.appendChild(title);box.appendChild(select);box.appendChild(input);box.appendChild(row);
+    wrap.appendChild(box);
+    wrap.addEventListener("mousedown",function(e){if(e.target===wrap)finish(null)});
+    document.addEventListener("keydown",onKey,true);
+    document.body.appendChild(wrap);
+    select.focus();
+  });
 }
 function applyJsonLibraryStyle(fileName,target){
   var lib=ensureProjectTemplateLibrary();
   var styleId=target.styleId;
   if(target.create)styleId=ensureTemplateRegistryEntry(lib.internalStyles,target.create,lib.internalStyles[0].id,"tsty");
-  var ids=ensureProjectTemplateLibrary().templates.filter(function(t){return t.librarySource!=="user"&&t.sourceFile===fileName}).map(function(t){return t.id});
+  // Варианты, которые пришли из этого файла, в том числе слитые с уже существующей карточкой.
+  var ids=ensureProjectTemplateLibrary().templates.filter(function(t){
+    if(t.librarySource==="user")return false;
+    if(t.sourceFile===fileName)return true;
+    return (t.libraryVersions||[]).some(function(v){return (v.files||[]).indexOf(fileName)>=0});
+  }).map(function(t){return t.id});
   addTemplatesToStyle(ids,styleId);
 }
 function importTemplateLibraryFile(file){
@@ -84,19 +123,22 @@ function importTemplateLibraryFile(file){
       var isJs=/\.js$/i.test(file&&file.name||"");
       var json=isJs?null:JSON.parse(text);
       var isUserPayload=!isJs&&userLibraryPayloadLooksValid(json);
-      var jsonTarget=null;
       if(!isJs&&!isUserPayload){
-        jsonTarget=chooseJsonLibraryStyle();
-        if(!jsonTarget)return;
+        // Сначала выбор стиля (встроенное окно), затем импорт; отмена — без изменений.
+        chooseJsonLibraryStyle().then(function(target){
+          if(!target)return;
+          pushHistory();
+          var jsonName=file&&file.name||"library.json";
+          importTemplateLibraryData(json,jsonName,{sourceKind:"system",sourceFile:jsonName});
+          applyJsonLibraryStyle(jsonName,target);
+          if(state.inspOpen&&state.inspTab!=="block")renderInspector();
+        }).catch(function(e){console.error(e);alert("Ошибка импорта Template Library")});
+        return;
       }
       pushHistory();
       if(isJs)evalTemplateLibraryScript(text,file.name||"template-library.js",{sourceKind:/user\.js$/i.test(file&&file.name||"")?"user":"system",sourceFile:file&&file.name||"template-library.js"});
       else if(isUserPayload)window.PMS_registerUserLibrary(json);
-      else{
-        var jsonName=file&&file.name||"library.json";
-        importTemplateLibraryData(json,jsonName,{sourceKind:"system",sourceFile:jsonName});
-        applyJsonLibraryStyle(jsonName,jsonTarget);
-      }
+      else{/* JSON-библиотека обработана выше */}
       if(state.inspOpen&&state.inspTab!=="block")renderInspector();
     }catch(e){console.error(e);alert("Ошибка импорта Template Library")}
   };
@@ -112,7 +154,8 @@ function registerStyleSystems(styleSystems,opts){
   var kind=opts.sourceKind||pmsTemplateRegistrationContext.sourceKind||"system";
   var section=templateLibrarySection(kind);
   section.file=opts.sourceFile||pmsTemplateRegistrationContext.sourceFile||section.file;
-  section.styleSystems=Object.assign({},section.styleSystems||{},styleSystems||{});
+  // Название ключа фиксируется при первом появлении (без приоритета по файлу).
+  section.styleSystems=Object.assign({},styleSystems||{},section.styleSystems||{});
   ensureProjectTemplateLibrary();
   if(state.libraryMode==="templates")renderTemplateBrowser();
 }
@@ -121,7 +164,7 @@ function registerTemplates(payload,opts){
   var kind=opts.sourceKind||pmsTemplateRegistrationContext.sourceKind||"system";
   var fileName=opts.sourceFile||pmsTemplateRegistrationContext.sourceFile||"librarymotion.js";
   var normalized=normalizeRegisteredTemplatesPayload(payload),section=templateLibrarySection(kind);
-  normalized.styleSystems=Object.assign({},section.styleSystems||{},normalized.styleSystems||{});
+  normalized.styleSystems=Object.assign({},normalized.styleSystems||{},section.styleSystems||{});
   importTemplateLibraryData(normalized,fileName,{silent:!!opts.silent,keepFilters:true,autoMode:opts.autoMode!==false,sourceKind:kind,sourceFile:fileName});
 }
 window.SB_registerStyleSystems=function(styleSystems){registerStyleSystems(styleSystems,{sourceKind:pmsTemplateRegistrationContext.sourceKind,sourceFile:pmsTemplateRegistrationContext.sourceFile})};
@@ -526,12 +569,14 @@ function pmsLibraryConflictVersions(rec){
 }
 function resolveTemplateLibraryConflicts(){
   var lib=ensureProjectTemplateLibrary();
+  // Выбор версии — пользовательское действие: фиксируется в истории отдельной записью.
+  commitHistory();
   var conflicts=lib.templates.filter(function(t){return t.libraryConflict&&t.librarySource!=="user"});
   if(!conflicts.length)return 0;
   var resolved=0;
   conflicts.forEach(function(t){
     var versions=pmsLibraryConflictVersions(t);
-    var current=versions.filter(function(v){return v.fp===t.libraryPrimaryFp||v.fp===(t.libraryVersions&&t.libraryVersions[0]&&t.libraryVersions[0].fp)})[0]||versions[0];
+    var current=versions.filter(function(v){return v.fp===t.libraryPrimaryFp})[0]||versions[0];
     var alt=versions.filter(function(v){return v!==current})[0];
     if(!alt)return;
     var ok=window.confirm("Конфликт варианта «"+(t.tpl||t.id)+"|"+(t.format||"")+"».\n"+
@@ -543,6 +588,7 @@ function resolveTemplateLibraryConflicts(){
     ensureProjectTemplateLibrary();
     resolved++;
   });
+  if(resolved)commitHistory();
   return resolved;
 }
 async function refreshTemplateLibrarySources(){
@@ -550,9 +596,14 @@ async function refreshTemplateLibrarySources(){
   if(!bridge||typeof bridge.listTemplateSources!=="function"){alert("Обновление библиотек доступно только в приложении PMS (Electron).");return}
   var listing;
   try{listing=await bridge.listTemplateSources()}catch(e){alert("Не удалось прочитать templates/: "+(e&&e.message||e));return}
+  var listWarnings=(listing&&listing.warnings)||[];
   var files=((listing&&listing.files)||[]).slice().sort(function(a,b){return String(a.relativePath).localeCompare(String(b.relativePath))});
   var projectBefore=pmsProjectSnapshotWithoutLibrary();
-  pushHistory();
+  // Точка истории фиксируется до изменений и удаляется, если обновление ничего не изменило.
+  // Парная фиксация: состояние до (commitHistory) и после (commitHistory при изменении).
+  var hist=state.history,histStack=hist.stack.slice(),histIndex=hist.index;
+  commitHistory();
+  var stateBefore=JSON.stringify(snapshot());
   var log={loaded:[],skipped:[],errors:[],added:[],changed:[],unchanged:[],removed:[],conflicts:[]};
   pmsLibraryRefreshing=true;
   try{
@@ -578,6 +629,8 @@ async function refreshTemplateLibrarySources(){
     });
   }finally{pmsLibraryRefreshing=false}
   var projectSame=pmsProjectSnapshotWithoutLibrary()===projectBefore;
+  if(JSON.stringify(snapshot())!==stateBefore)commitHistory();
+  else if(hist.stack.length!==histStack.length){hist.stack=histStack;hist.index=histIndex;}
   renderLibraryPane();
   var lib=ensureProjectTemplateLibrary();
   log.conflicts=lib.templates.filter(function(t){return t.libraryConflict&&t.librarySource!=="user"}).map(function(t){return (t.tpl||t.id)+"|"+(t.format||"")});
@@ -589,6 +642,7 @@ async function refreshTemplateLibrarySources(){
     "Проект и таймлайн: "+(projectSame?"без изменений":"ИЗМЕНЕНЫ — проверьте")
   ];
   if(log.skipped.length)lines.push("Пропущено: "+log.skipped.map(function(s){return s.file+" ("+s.reason+")"}).join("; "));
+  if(listWarnings.length)lines.push("Предупреждения: "+listWarnings.join("; "));
   if(log.errors.length)lines.push("Ошибки (библиотека сохранена):\n"+log.errors.map(function(e){return "— "+e.file+": "+e.error}).join("\n"));
   alert("Обновление библиотек\n\n"+lines.join("\n"));
   if(log.conflicts.length&&window.confirm("Разрешить конфликты сейчас? Для каждого конфликта можно выбрать версию.")){

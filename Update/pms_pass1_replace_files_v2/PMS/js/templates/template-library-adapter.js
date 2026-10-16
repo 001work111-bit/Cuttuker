@@ -58,10 +58,11 @@ function normalizeDesignImport(raw,fileName){
 }
 // Исходные поля Sandbox, которые нормализация не переносит (recompose*, frameContract и др.).
 // styleSystem и favorite — принадлежность к подборкам и состояние UI, в метаданные не входят.
+var SANDBOX_NORMALIZED_KEYS={build:1,html:1,styleSystem:1,favorite:1,id:1,tpl:1,family:1,group:1,label:1,code:1,icon:1,kind:1,desc:1,aspect:1,format:1,canvas:1,single:1,tags:1,tagIds:1,motionStudio:1,motion:1,adaptation:1,target:1,contractVersion:1,designW:1,designH:1,batch:1,sandboxMeta:1,sourceOrder:1};
 function sandboxMetaOf(raw){
-  var out={};
+  var out=raw&&raw.sandboxMeta&&typeof raw.sandboxMeta==="object"?deepClone(raw.sandboxMeta):{};
   Object.keys(raw||{}).forEach(function(k){
-    if(k==="build"||k==="html"||k==="styleSystem"||k==="favorite"||k==="id")return;
+    if(SANDBOX_NORMALIZED_KEYS[k])return;
     var v=raw[k];
     if(typeof v==="function"||v===undefined)return;
     out[k]=deepClone(v);

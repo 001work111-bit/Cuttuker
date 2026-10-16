@@ -132,18 +132,27 @@ function resolveTemplateInternalGroupId(raw,lib,assignment){
   if(raw.internalGroupId&&findIn(lib.internalGroups,raw.internalGroupId))return raw.internalGroupId;
   return ensureTemplateRegistryEntry(lib.internalGroups,raw.appGroupName||raw.internalGroupName||raw.appGroup||raw.group,lib.internalGroups[0].id||TEMPLATE_DEFAULT_GROUP_ID,"tgrp");
 }
+// Название стиля из реестра Sandbox (STYLE_SYSTEMS: {key:{name,color}}); при отсутствии — ключ.
+function styleDisplayName(lib,key){
+  key=String(key==null?"":key).trim();
+  if(!key)return key;
+  var reg=(lib&&lib.systemLibrary&&lib.systemLibrary.styleSystems)||{};
+  var entry=reg[key];
+  var name=entry&&typeof entry==="object"?String(entry.name||entry.label||"").trim():"";
+  return name||key;
+}
 function resolveTemplateInternalStyleId(raw,lib,assignment){
   raw=raw||{};assignment=assignment||{};
   if(assignment.internalStyleId&&findIn(lib.internalStyles,assignment.internalStyleId))return assignment.internalStyleId;
   if(raw.appStyleId&&findIn(lib.internalStyles,raw.appStyleId))return raw.appStyleId;
   if(raw.internalStyleId&&findIn(lib.internalStyles,raw.internalStyleId))return raw.internalStyleId;
-  return ensureTemplateRegistryEntry(lib.internalStyles,raw.appStyleName||raw.internalStyleName||raw.appStyle||raw.style||raw.styleSystem,lib.internalStyles[0].id||TEMPLATE_DEFAULT_STYLE_ID,"tsty");
+  return ensureTemplateRegistryEntry(lib.internalStyles,raw.appStyleName||raw.internalStyleName||raw.appStyle||raw.style||styleDisplayName(lib,raw.styleSystem),lib.internalStyles[0].id||TEMPLATE_DEFAULT_STYLE_ID,"tsty");
 }
 function resolveTemplateInternalStyleIds(raw,lib,assignment,primaryId){
   raw=raw||{};assignment=assignment||{};
   var ids=[primaryId];
   (raw._styleNames||[]).forEach(function(name){
-    var id=ensureTemplateRegistryEntry(lib.internalStyles,name,lib.internalStyles[0].id||TEMPLATE_DEFAULT_STYLE_ID,"tsty");
+    var id=ensureTemplateRegistryEntry(lib.internalStyles,styleDisplayName(lib,name),lib.internalStyles[0].id||TEMPLATE_DEFAULT_STYLE_ID,"tsty");
     ids.push(id);
   });
   (assignment.extraStyleIds||[]).forEach(function(id){if(findIn(lib.internalStyles,id))ids.push(id)});
@@ -161,8 +170,12 @@ function addTemplatesToStyle(templateIds,styleId){
   (templateIds||[]).forEach(function(id){
     var t=findTemplate(id);if(!t||t.librarySource==="user")return;
     var a=lib.internalAssignments[t.sourceKey]=lib.internalAssignments[t.sourceKey]||{};
-    a.extraStyleIds=(a.extraStyleIds||[]).filter(function(x){return x!==styleId});
-    if(!templateHasStyle(t,styleId)){a.extraStyleIds.push(styleId);n++;}
+    a.extraStyleIds=Array.isArray(a.extraStyleIds)?a.extraStyleIds:[];
+    // Идемпотентно: повторное назначение не удаляет и не дублирует стиль.
+    if(a.extraStyleIds.indexOf(styleId)<0){
+      if(!templateHasStyle(t,styleId))n++;
+      a.extraStyleIds.push(styleId);
+    }
   });
   ensureProjectTemplateLibrary();
   return n;
@@ -480,14 +493,15 @@ function replaceTemplateLibrarySectionData(manifest,opts){
   opts=opts||{};
   var lib=ensureProjectTemplateLibrary(),kind=opts.sourceKind==="user"?"user":"system",section=templateLibrarySection(kind),src=manifest||{};
   var legacyFile=section.file;
-  section.file=opts.sourceFile||section.file;
+  // Для системных источников section.file не перезаписывается: это поле не участвует в слиянии.
+  if(!(kind==="system"&&opts.sourceFile&&Array.isArray(src.templates)))section.file=opts.sourceFile||section.file;
   section.format=src.format||src.libraryType||section.format;
   section.libraryType=src.libraryType||src.format||section.libraryType;
   section.target=src.target||section.target;
   section.contractVersion=src.contractVersion||section.contractVersion;
   if(kind==="system"&&opts.sourceFile&&Array.isArray(src.templates)){
     // Системные источники объединяются: записи других файлов не удаляются.
-    section.styleSystems=Object.assign({},section.styleSystems||{},deepClone(src.styleSystems||{}));
+    section.styleSystems=Object.assign({},deepClone(src.styleSystems||{}),section.styleSystems||{});
     section.batches=Object.assign({},section.batches||{},deepClone(src.batches||{}));
     var merged=PMS_TemplateLibraryMerge.mergeSource(section.templates||[],src.templates,opts.sourceFile,legacyFile);
     section.templates=merged.list;
@@ -546,7 +560,8 @@ function templateDefinitionForEditor(template){
     defaultTemplateViewMode:normalizeTemplateViewMode(template.defaultTemplateViewMode||template.templateViewMode||defaultTemplateViewMode()),
     defaultTemplateZoom:normalizeTemplateZoom(template.defaultTemplateZoom||template.templateZoom||1),
     motionStudio:deepClone(template.motionStudio||{}),
-    adaptation:normalizeAdaptationMeta(template.adaptation)
+    adaptation:normalizeAdaptationMeta(template.adaptation),
+    sandboxMeta:template.sandboxMeta?deepClone(template.sandboxMeta):undefined
   };
 }
 function templateDefinitionForStorage(template){
@@ -573,6 +588,7 @@ function upsertUserTemplateDefinition(definition,opts){
   opts=opts||{};
   var lib=ensureProjectTemplateLibrary(),targetId=opts.targetId||null;
   var normalized=normalizeTemplateItem(definition||{});
+  if(definition&&definition.sandboxMeta)normalized.sandboxMeta=deepClone(definition.sandboxMeta);
   var finalId=uniqueTemplateId(targetId||normalized.id||(definition&&definition.id)||suggestUserTemplateId(normalized.tpl||normalized.id),targetId);
   lib=ensureProjectTemplateLibrary();
   var list=lib.userLibrary.templates;
@@ -811,7 +827,7 @@ function makeBlock(assetId,extra){
 function makeTemplateBlock(templateId,extra){
   extra=extra||{};
   var t=findTemplate(templateId);if(!t)return null;
-  return makeBlock(null,{id:extra.id,duration:extra.duration,start:extra.start,titleInstance:!!extra.titleInstance,fit:"contain",scale:1,posX:extra.posX!=null?extra.posX:0.5,posY:extra.posY!=null?extra.posY:0.5,fixed:!!extra.fixed,anim:"none",animSpeed:1,hidden:!!extra.hidden,layer:extra.layer||"main",kind:"template",templateId:t.id,templateHtml:String(extra.templateHtml||t.html||""),templateMeta:deepClone(extra.templateMeta||{tpl:t.tpl,label:t.label,code:t.code,group:t.group,styleSystem:t.styleSystem,tags:ensureStringArray(t.tags),format:t.format,designW:t.designW,designH:t.designH,motionStudio:deepClone(t.motionStudio||{}),adaptation:normalizeAdaptationMeta(t.adaptation),librarySource:t.librarySource,sourceFile:t.sourceFile,internalGroupId:t.internalGroupId,internalStyleId:t.internalStyleId}),templateSlots:deepClone(extra.templateSlots||parseTemplateMediaSlots(extra.templateHtml||t.html||"")),templateFolderId:extra.templateFolderId||null,templateFolderIds:ensureStringArray(extra.templateFolderIds||(extra.templateFolderId?[extra.templateFolderId]:[])),templateTagIds:ensureStringArray(extra.templateTagIds),templateSelectedSlot:extra.templateSelectedSlot||null,templateView:normalizeTemplateView(extra.templateView||t.defaultTemplateView),templateViewMode:normalizeTemplateViewMode(extra.templateViewMode||t.defaultTemplateViewMode),templateZoom:normalizeTemplateZoom(extra.templateZoom||t.defaultTemplateZoom||1)});
+  return makeBlock(null,{id:extra.id,duration:extra.duration,start:extra.start,titleInstance:!!extra.titleInstance,fit:"contain",scale:1,posX:extra.posX!=null?extra.posX:0.5,posY:extra.posY!=null?extra.posY:0.5,fixed:!!extra.fixed,anim:"none",animSpeed:1,hidden:!!extra.hidden,layer:extra.layer||"main",kind:"template",templateId:t.id,templateHtml:String(extra.templateHtml||t.html||""),templateMeta:deepClone(extra.templateMeta||{tpl:t.tpl,label:t.label,code:t.code,group:t.group,styleSystem:t.styleSystem,tags:ensureStringArray(t.tags),format:t.format,designW:t.designW,designH:t.designH,motionStudio:deepClone(t.motionStudio||{}),adaptation:normalizeAdaptationMeta(t.adaptation),sandboxMeta:t.sandboxMeta?deepClone(t.sandboxMeta):undefined,librarySource:t.librarySource,sourceFile:t.sourceFile,internalGroupId:t.internalGroupId,internalStyleId:t.internalStyleId}),templateSlots:deepClone(extra.templateSlots||parseTemplateMediaSlots(extra.templateHtml||t.html||"")),templateFolderId:extra.templateFolderId||null,templateFolderIds:ensureStringArray(extra.templateFolderIds||(extra.templateFolderId?[extra.templateFolderId]:[])),templateTagIds:ensureStringArray(extra.templateTagIds),templateSelectedSlot:extra.templateSelectedSlot||null,templateView:normalizeTemplateView(extra.templateView||t.defaultTemplateView),templateViewMode:normalizeTemplateViewMode(extra.templateViewMode||t.defaultTemplateViewMode),templateZoom:normalizeTemplateZoom(extra.templateZoom||t.defaultTemplateZoom||1)});
 }
 function convertBlockToAsset(block,assetId){
   if(!block)return block;
