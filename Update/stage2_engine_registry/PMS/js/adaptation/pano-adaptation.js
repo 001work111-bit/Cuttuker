@@ -121,22 +121,12 @@
     });
   }
 
-  // Форматы, объявленные в Sandbox frame-contract с adapt:false / export:false: в списке видны, но не поддерживаются.
-  // Рабочий кадр для них не задан намеренно (координаты не угадываются) — поэтому w/h отсутствуют.
-  var UNSUPPORTED_FORMATS = [
-    { id: "4:5", label: "4:5", contractCanvas: { width: 1080, height: 1350 } },
-    { id: "5:6", label: "5:6", contractCanvas: { width: 1000, height: 1200 } }
-  ];
-  // adapt:false означает «методов нет», а не «формат проверен»; validated из listFormats() не используется как доказательство.
+  // Реестр форматов — единый (formats-registry.js ← Sandbox SB_FORMATS). 4:5 и 5:6 в нём включены, как в Sandbox.
+  // validated из listFormats() не используется как доказательство проверки метода.
   function formats() {
     if (!core()) return [];
-    var list = core().listFormats().filter(function (f) { return f.id; })
+    return core().listFormats().filter(function (f) { return f.id; })
       .map(function (f) { return { id: f.id, label: f.label || f.id, validated: !!f.validated, w: f.w, h: f.h, adapt: true }; });
-    UNSUPPORTED_FORMATS.forEach(function (u) {
-      if (!list.some(function (f) { return f.id === u.id; }))
-        list.push({ id: u.id, label: u.label, validated: false, w: undefined, h: undefined, adapt: false, contractCanvas: u.contractCanvas });
-    });
-    return list;
   }
 
   // Размеры дизайна шаблона = система координат его HTML.
@@ -371,6 +361,7 @@
       var token = ++ctl.token;
       var src = cfg.getSource();
       renderCaps();
+      probeAll();
       if (!src) { setStatus("Нет исходного HTML", "warn"); return; }
       if (!ctl.method) {
         ctl.result = null; ctl.pending = false;
@@ -411,6 +402,35 @@
         cfg.onResult && cfg.onResult(res, ctl);
       });
     }
+
+    // Фоновый расчёт статусов всех доступных методов (как rcProbe в Sandbox): точки видны сразу,
+    // без нажатия на капсулу. Выбор метода не меняет библиотеку; результаты — только в кэше инспектора.
+    ctl.probing = {};
+    ctl.probeQueue = Promise.resolve();
+    function probeAll() {
+      var src = cfg.getSource();
+      if (!src || !ready() || !box.isConnected) return;
+      var list = methods(ctl.format, cfg.scenario, cfg.sourceFormat());
+      list.forEach(function (m) {
+        var key = capKey(m.id);
+        if (ctl.cache[key] || ctl.probing[key]) return;
+        ctl.probing[key] = true;
+        ctl.probeQueue = ctl.probeQueue.then(function () {
+          if (!box.isConnected) { delete ctl.probing[key]; return null; }
+          return convert(src, m.id, ctl.format, function () { return !box.isConnected; });
+        }).then(function (res) {
+          delete ctl.probing[key];
+          if (!res || !box.isConnected) return;
+          var st;
+          if (res.status === "failed") st = { status: "failed", reason: (res.reasons && res.reasons[0]) || res.error || "" };
+          else if (!usable(res)) st = { status: "failed", reason: (res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны" };
+          else st = { status: res.status === "warning" ? "warning" : "ok", reason: (res.warnings && res.warnings[0]) || "" };
+          ctl.cache[key] = st;
+          renderCaps();
+        }).catch(function () { delete ctl.probing[key]; });
+      });
+    }
+    ctl.probeAll = probeAll;
 
     ctl.setFormat = function (f) { ctl.format = f; fmtSel.value = f; fillMethods(); update(); };
     ctl.setMethod = function (m) { ctl.method = m; mthSel.value = m; update(); };

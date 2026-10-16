@@ -1,0 +1,33 @@
+{
+  "id": "split",
+  "name": "Редакционный split",
+  "version": "1.1.0",
+  "description": "Попытка собрать текстовую и медиа-части в редакционный split, когда у шаблона обе группы выражены.",
+  "sourceFormats": [
+    "16:9"
+  ],
+  "targetFormats": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:3",
+    "4:5",
+    "5:6"
+  ],
+  "apps": [
+    "Sandbox",
+    "Pano Montage Studio"
+  ],
+  "scenarios": [
+    "library",
+    "timeline"
+  ],
+  "order": 3,
+  "engineApi": 1,
+  "titleRole": true,
+  "markup": [
+    ".sv-section",
+    "[data-sb-editable]",
+    "[data-role]"
+  ]
+}
