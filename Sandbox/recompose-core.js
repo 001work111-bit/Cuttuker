@@ -114,17 +114,10 @@ const ADAPT_API = {
   errors: () => ADAPT_ERRORS.slice()
 };
 
-// Реестр форматов. В UI выведен только 16:9. Новый формат — запись сюда + проверка targetCss.
-const FORMATS = {
-  // w×h — рабочий кадр алгоритма (1600×900, как в прототипе). previewW/H — опорный размер предпросмотра.
-  // contractCanvas — эталонный холст Frame Contract (система координат промта); алгоритмом не используется.
-  '16:9': { id:'16:9', label:'16:9', w:1600, h:900, previewW:1280, previewH:720, contractCanvas:{width:1920,height:1080}, validated:true },
-  // новые форматы: размеры — предложение конфигурации; методы для них ещё не проверены (validated:false)
-  '9:16': { id:'9:16', label:'9:16', w:900, h:1600, previewW:720, previewH:1280, contractCanvas:{width:1080,height:1920}, validated:false },
-  '1:1':  { id:'1:1',  label:'1:1',  w:1200, h:1200, previewW:960, previewH:960, contractCanvas:{width:1080,height:1080}, validated:false },
-  '4:3':  { id:'4:3',  label:'4:3',  w:1200, h:900,  previewW:960, previewH:720, contractCanvas:{width:1440,height:1080}, validated:false }
-};
-const W = 1600, H = 900;
+// Реестр форматов — ЕДИНЫЙ ИСТОЧНИК: window.SB_FORMATS (Sandbox_Content.html). Здесь только кэш рабочих кадров,
+// который заполняет SB_syncFormats() (recompose-sandbox.js). Новых записей в этой таблице не вводить.
+const FORMATS = {};
+const W = 1600, H = 900;   // рабочий кадр 16:9 алгоритма (= SB_FORMATS '16:9'.work)
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = () => null; // UI-функции прототипа в движке не используются
 
@@ -228,14 +221,15 @@ function checkOverflow(doc){const section=pickRoot(doc);if(!section)return [{nam
 /* ---- параметризовано по кадру fmt: targetDoc, smartCssFixes ---- */
 function targetDoc(html,fmt){html=vwToPx(vhToPx(stripRemoteFontImports(html)),fmt.w);return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${fmt.w}, initial-scale=1"></head><body style="--pad:4vw">${html}</body></html>`}
 function smartCssFixes(doc,layout,mod,fmt,t){const sec=pickRoot(doc);if(sec){setInline(sec,{position:'absolute',left:'0',top:'0',width:fmt.w+'px',height:fmt.h+'px','min-height':'0','max-height':fmt.h+'px',overflow:'hidden','box-sizing':'border-box'});const inner=sec.querySelector('.sv-inner');if(inner){setInline(inner,{width:'100%',height:'100%','max-width':'none','min-height':'0','max-height':'100%',margin:'0','box-sizing':'border-box'});}}
- let css=targetCss(layout,mod,fmt);if(fmt&&fmt.h>fmt.w)css+='\n'+portraitCss(layout,mod.id,t);createStyle(doc,css);}
+ let css=targetCss(layout,mod,fmt);if(fmt&&fmt.h>fmt.w)css+='\n'+portraitCss(layout,mod.id,t,fmt);createStyle(doc,css);}
 
-function portraitCss(layout,method,t){
+function portraitCss(layout,method,t,fmt){
  const id=String(t?.tpl||'').toLowerCase();
+ const FW=fmt.w, FH=fmt.h;   // fix5: геометрия кадра из целевого формата, не 900×1600
  let css=`
-html,body{width:900px!important;min-width:900px!important;height:1600px!important;min-height:1600px!important;max-height:1600px!important;overflow:hidden!important}
+html,body{width:${FW}px!important;min-width:${FW}px!important;height:${FH}px!important;min-height:${FH}px!important;max-height:${FH}px!important;overflow:hidden!important}
 body{overflow:hidden!important}
-.sv-section{width:900px!important;height:1600px!important;min-height:1600px!important;max-height:1600px!important;padding:58px 52px!important;overflow:hidden!important}
+.sv-section{width:${FW}px!important;height:${FH}px!important;min-height:${FH}px!important;max-height:${FH}px!important;padding:58px 52px!important;overflow:hidden!important}
 .sv-section>.sv-inner{width:100%!important;height:100%!important;max-width:none!important;max-height:100%!important;min-height:0!important;min-width:0!important;box-sizing:border-box!important}
 .sv-inner>*{min-width:0!important;max-width:100%!important}
 .sv-inner [data-role="title"],.sv-inner [data-role="statement"],.sv-inner h1,.sv-inner h2{font-size:clamp(34px,6.2vw,58px)!important;line-height:1.02!important;letter-spacing:-.035em!important;overflow-wrap:anywhere!important}
@@ -301,6 +295,12 @@ img,video,svg{max-width:100%!important;height:auto}
 .sv-inner>div:first-child p{margin-top:4px!important}
 .sv-inner>.sv-media,.sv-inner>[data-sb-media]{width:100%!important;aspect-ratio:16/9!important;max-height:420px!important}
 `;
+ // fix2: портретные кадры (4:5, 5:6, 9:16) — медиа занимает остаток высоты, а не фиксированные 16:9 / 420px (локальное правило раскладки directions)
+ if(id.includes('showreelsplitdirections')) css+=`
+.sv-inner.sv-inner{display:flex!important;flex-direction:column!important;grid-template-columns:none!important;justify-content:center!important;gap:clamp(18px,2.6vw,30px)!important}
+.sv-inner>div:first-child h2{font-size:clamp(34px,5.6vw,52px)!important}
+.sv-inner>.sv-media,.sv-inner>[data-sb-media]{flex:1 1 0!important;min-height:0!important;width:100%!important;aspect-ratio:auto!important;max-height:none!important;height:auto!important}
+`;
  if(id.includes('showreelmicrogrid')) css+=`
 .sv-inner{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr)!important;gap:20px!important}
 .sv-inner>div:first-child{margin:0!important;padding-bottom:12px!important}
@@ -333,7 +333,7 @@ img,video,svg{max-width:100%!important;height:auto}
 `;
  // Vertical split always stacks semantic pieces; don't force columns in the portrait frame.
  if(method==='split') css+=`.sv-section>.sv-inner{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:22px!important}.sv-section>.sv-inner>*{width:100%!important;min-width:0!important}`;
- css+=`\n[data-sb-format-inner]{position:static!important;left:auto!important;top:auto!important;width:900px!important;height:1600px!important;transform:none!important;overflow:visible!important}`;
+ css+=`\n[data-sb-format-inner]{position:static!important;left:auto!important;top:auto!important;width:${FW}px!important;height:${FH}px!important;transform:none!important;overflow:visible!important}`;
  return css;
 }
 

@@ -9,10 +9,10 @@
    - id            ключ формата (значение tpl.aspect, как раньше: '16:9', '9:16' …)
    - label         подпись в интерфейсе
    - ratio         соотношение сторон {w,h} (только смысл, без размеров)
-   - frameSize     размер кадра для адаптированных шаблонов и окна «Экспорт»
-                   (то же значение, что раньше использовали конвертер и экспорт)
-   - contractCanvas эталон системы кадра (frame-contract: поле canvas при импорте)
-                   (значения сохранены как были; они намеренно могут отличаться от frameSize)
+   - contractCanvas эталон системы кадра (frame-contract: поле canvas при импорте и экспорте)
+   Рабочий кадр алгоритма (w×h) и размер предпросмотра (previewW×previewH) задаются в
+   RecomposeCore.FORMATS (recompose-core.js) и здесь не дублируются.
+   frameSize удалён: ни один код его не читал (мёртвое поле с неверной семантикой).
    - className     класс кадра frame-contract
    - safe          безопасная зона: доля стороны кадра с каждой стороны
    - export        показывать в окне «Экспорт»
@@ -22,19 +22,23 @@
    Загружается инлайн в <head>, до всех модулей.
    ============================================================ */
 window.SB_FORMATS = [
-  { id:'16:9', label:'16:9', ratio:{w:16,h:9}, frameSize:{w:1280,h:720},
-    contractCanvas:{width:1920,height:1080}, className:'sb-frame-16x9',
-    safe:0.04, export:true, adapt:true },
-  { id:'9:16', label:'9:16', ratio:{w:9,h:16}, frameSize:{w:720,h:1280},
-    contractCanvas:{width:1080,height:1920}, className:'sb-frame-9x16',
-    safe:0.04, export:true, adapt:true },
-  { id:'4:5', label:'4:5', ratio:{w:4,h:5}, frameSize:{w:1080,h:1350},
-    contractCanvas:{width:1080,height:1350}, className:'sb-frame-4x5',
-    safe:0.04, export:false, adapt:false },
-  { id:'5:6', label:'5:6', ratio:{w:5,h:6}, frameSize:{w:1000,h:1200},
-    contractCanvas:{width:1000,height:1200}, className:'sb-frame-5x6',
-    safe:0.04, export:false, adapt:false }
+  { id:'16:9', label:'16:9', ratio:{w:16,h:9}, contractCanvas:{width:1920,height:1080}, className:'sb-frame-16x9',
+    work:{w:1600,h:900}, validated:true, safe:0.04, export:true },
+  { id:'9:16', label:'9:16', ratio:{w:9,h:16}, contractCanvas:{width:1080,height:1920}, className:'sb-frame-9x16',
+    work:{w:900,h:1600}, safe:0.04, export:true },
+  { id:'4:5', label:'4:5', ratio:{w:4,h:5}, contractCanvas:{width:1080,height:1350}, className:'sb-frame-4x5',
+    work:{w:1280,h:1600}, safe:0.04, export:true },
+  { id:'5:6', label:'5:6', ratio:{w:5,h:6}, contractCanvas:{width:1000,height:1200}, className:'sb-frame-5x6',
+    work:{w:1333,h:1600}, safe:0.04, export:true },
+  { id:'1:1', label:'1:1', ratio:{w:1,h:1}, contractCanvas:{width:1080,height:1080}, className:'sb-frame-1x1',
+    work:{w:1200,h:1200}, safe:0.04, export:true },
+  { id:'4:3', label:'4:3', ratio:{w:4,h:3}, contractCanvas:{width:1440,height:1080}, className:'sb-frame-4x3',
+    work:{w:1200,h:900}, safe:0.04, export:true }
 ];
+/* ЕДИНЫЙ РЕЕСТР ФОРМАТОВ. Здесь задаются id, ratio, contractCanvas, work (рабочий кадр алгоритма),
+   validated и UI-параметры. RecomposeCore.FORMATS заполняется из этого списка через SB_syncFormats() — второго реестра нет.
+   Расширение: новый формат = новая запись выше (или window.SB_FORMATS.push + SB_syncFormats()).
+   Модуль адаптации получает формат, только если его module.json указывает targetFormats с этим id. */
 
 /* Поиск записи по id. Возвращает null, если формата нет. */
 window.SB_FORMAT = function(id){
@@ -668,6 +672,8 @@ input[type=file]{display:none}
 .rs-status.warn{background:rgba(224,178,58,.10);color:#f0cf72;border:1px solid rgba(224,178,58,.28)}
 .rs-note{margin-top:7px;color:var(--ui-muted);font-size:10px;line-height:1.45}
 
+s3-stsum::-webkit-details-marker{display:none}
+details.s3-stbox[open] .s3-chev{transform:rotate(180deg)}
 </style>
 </head>
 <body>
@@ -716,7 +722,6 @@ input[type=file]{display:none}
     <div class="spacer"></div>
     <button class="tb-btn accent" id="btnAdd">＋ Вставить JSON</button>
     <button class="tb-btn" id="btnExport" title="Скопировать JSON-массив выбранных шаблонов для AI">⧉ JSON выбранных</button>
-    <button class="tb-btn accent" id="btnExportMotion" title="Экспорт выбранных шаблонов для Motion Studio">⬇ Motion Studio</button>
     <button class="tb-btn accent" id="btnExportLibraryJs" title="Собрать один самозагружающийся library.js">⬇ Собрать library.js</button>
     <button class="tb-btn" id="btnArchiveSave">⤓ Сохранить архив</button>
     <button class="tb-btn" id="btnArchiveLoad">⤒ Загрузить архив</button>
@@ -810,6 +815,14 @@ input[type=file]{display:none}
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
           <input type="radio" name="importMode" value="overwrite"> Перезаписать совпадающие
         </label>
+      </div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--ui-muted);margin-bottom:5px">Стиль импорта</label>
+          <select id="importStyle" style="width:100%;background:var(--ui-panel-2);border:1px solid var(--ui-line);border-radius:7px;color:var(--ui-text);font-size:12px;padding:8px 10px"></select>
+          <input id="importStyleNew" type="text" maxlength="60" placeholder="Название нового стиля" style="display:none;width:100%;box-sizing:border-box;margin-top:6px;background:var(--ui-panel-2);border:1px solid var(--ui-line);border-radius:7px;color:var(--ui-text);font-size:12px;padding:7px 9px">
+          <div style="margin-top:6px;color:var(--ui-muted);font-size:10px;line-height:1.4">Стиль назначается всем шаблонам пачки и записывается в прогон. «Как в JSON» берёт styleSystem из каждого объекта.</div>
+        </div>
       </div>
       <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
@@ -1337,10 +1350,29 @@ function batchHasField(t,k){
   return !!(b && String(b[k]||'').trim());
 }
 /* Единый предикат верхних фильтров (используют и rail, и «Карта»). */
-let onlySelFilter=false;   // кнопка «Только выделенные»: только видимость, выделение не меняется
-function tplPassesFilters(t){
+let onlySelFilter=false;   // кнопка-воронка: показывает только набор фильтра (filterSet)
+let filterSet=null;        // набор видимости фильтра: снимок выбора на момент включения; не зависит от checked
+let filterSavedWork=null;  // рабочее выделение до включения фильтра — восстанавливается при выключении
+/* Включение: набор фильтра = текущий выбор, рабочее выделение снимается.
+   Выключение: возвращается прежнее рабочее выделение (только существующие шаблоны). */
+function setOnlySelFilter(on){
+  if(!!on===onlySelFilter) return;
+  if(on){
+    filterSet=new Set(checked);
+    filterSavedWork=new Set(checked);
+    checked.clear();
+    onlySelFilter=true;
+  } else {
+    checked.clear();
+    (filterSavedWork||new Set()).forEach(id=>{ if(LIB[id]) checked.add(id); });
+    filterSet=null; filterSavedWork=null;
+    onlySelFilter=false;
+  }
+}
+/* Базовая выборка — обычные фильтры Sandbox (без инспектора). Используется и самим инспектором. */
+function tplPassesBase(t){
   if(!t) return false;
-  if(onlySelFilter && !checked.has(t.tpl)) return false;
+  if(onlySelFilter && !(filterSet && filterSet.has(t.tpl))) return false;
   const sk=styleFilterKeys();
   if(sk&&!sk.includes(String(t.styleSystem||'default'))) return false;
   if(groupFilterSel.size&&!groupFilterSel.has(String(t.group||''))) return false;
@@ -1352,6 +1384,13 @@ function tplPassesFilters(t){
     if(f===null) return false; // замер в процессе: шаблон появится после renderLib()
     if(f!==formatFilter) return false;
   }
+  return true;
+}
+/* Итоговый предикат галереи и списка: базовая выборка + дополнительная выборка инспектора (тип проблемы).
+   Рабочее выделение (checked) сюда не входит — оно независимо. */
+function tplPassesFilters(t){
+  if(!tplPassesBase(t)) return false;
+  if(window.SB_inspFilterIds && !window.SB_inspFilterIds.has(t.tpl)) return false;
   return true;
 }
 const STYLE_COLORS=['#5b8cff','#3ecf8e','#e0b23a','#ff5b6a','#b07bff','#3ac6e0','#ff8a3a','#8ee03a','#e03a9a','#3a6bff'];
@@ -1389,30 +1428,90 @@ function autoBatchLabel(name){
 /* Undo: снимок LIB+BATCHES+STYLES+selection */
 const UNDO=[];
 const REDO=[];
+/* Снимок Undo покрывает ВСЕ группы состояния, которые меняют правки и восстановление архива:
+   библиотека, стили, прогоны, связи конверсий, назначения изображений, режимы изображений,
+   резервные копии нормализации, промты и папки, горячие клавиши, настройки сборщика. */
+function snapshotExtra(){
+  return {
+    S2_CONV:JSON.parse(JSON.stringify(S2_CONV||{})),
+    IMG_ASSIGN:JSON.parse(JSON.stringify(IMG_ASSIGN||{})),
+    IMG_MODE:JSON.parse(JSON.stringify(IMG_MODE||{})),
+    NORM_BACKUP:JSON.parse(JSON.stringify(NORM_BACKUP||{})),
+    PROMPTS:JSON.parse(JSON.stringify(PROMPTS||{})),
+    PFOLDERS:JSON.parse(JSON.stringify(PFOLDERS||{})),
+    HOTKEYS:JSON.parse(JSON.stringify(HOTKEYS||{})),
+    builderCfg:(function(){ try{ return localStorage.getItem('sandbox_builder_cfg'); }catch(e){ return null; } })()
+  };
+}
+function restoreExtra(x){
+  if(!x) return;
+  S2_CONV=x.S2_CONV||{}; IMG_ASSIGN=x.IMG_ASSIGN||{}; IMG_MODE=x.IMG_MODE||{}; NORM_BACKUP=x.NORM_BACKUP||{};
+  PROMPTS=x.PROMPTS||{}; PFOLDERS=x.PFOLDERS||{};
+  HOTKEYS=Object.assign({}, x.HOTKEYS||{});
+  try{
+    if(x.builderCfg==null) localStorage.removeItem('sandbox_builder_cfg');
+    else { localStorage.setItem('sandbox_builder_cfg', x.builderCfg); const c=JSON.parse(x.builderCfg);
+      if(c.pbDevice && PB_DEVICE_DEFAULTS[c.pbDevice]) pbDevice=c.pbDevice;
+      if(c.pbDeviceTexts && typeof c.pbDeviceTexts==='object') pbDeviceTexts=c.pbDeviceTexts;
+      if(typeof c.pbStyleKey==='string') pbStyleKey=c.pbStyleKey;
+      if(typeof c.pbFrame==='string') pbFrame=c.pbFrame; }
+  }catch(e){}
+  s2SaveConv(); saveImgAssign(); saveJsonKey('sandbox_img_mode', IMG_MODE); saveJsonKey('sandbox_norm_backup', NORM_BACKUP);
+  try{ store.savePrompts(); store.savePFolders(); store.saveHotkeys(); renderPrompts(); }catch(e){}
+}
 function snapshotState(){
   try{
     return {
       LIB:JSON.parse(JSON.stringify(LIB)),
       BATCHES:JSON.parse(JSON.stringify(BATCHES)),
       STYLES:JSON.parse(JSON.stringify(STYLES)),
-      selectedId, checked:[...checked], styleFilter
+      selectedId, checked:[...checked], styleFilter,
+      extra:snapshotExtra()
     };
   }catch(e){ return null; }
 }
-function restoreState(s){
-  if(!s) return;
-  LIB=s.LIB||{};
-  BATCHES=s.BATCHES||{};
-  STYLES=s.STYLES||STYLES;
-  selectedId=s.selectedId||null;
-  checked=new Set(s.checked||[]);
-  if(s.styleFilter) styleFilter=s.styleFilter;
-  store.save(); store.saveBatches(); store.saveStyles();
-  renderLib();
-  if(selectedId && LIB[selectedId] && typeof selectTpl==='function') selectTpl(selectedId,true);
-  else { renderInspectorEmpty(); }
-  if(window.SB_Gallery && SB_Gallery.mode==='grid') SB_Gallery.rebuild(true);
+/* Группы состояния, которые покрывает откат/повтор. Порядок совпадает со снимком. */
+const UNDO_GROUPS=[
+  ['LIB','библиотека'],['BATCHES','прогоны'],['STYLES','стили'],
+  ['S2_CONV','связи конверсий'],['IMG_ASSIGN','назначения изображений'],['IMG_MODE','режимы изображений'],
+  ['NORM_BACKUP','резервные копии нормализации'],['PROMPTS','промты'],['PFOLDERS','папки промтов'],
+  ['HOTKEYS','горячие клавиши'],['builderCfg','настройки сборщика']
+];
+function undoGroupValue(snap,k){ if(!snap) return undefined; return (k in snap) ? snap[k] : (snap.extra||{})[k]; }
+/* Возвращает список групп, фактически совпавших с целевым снимком, и список расхождений. */
+function verifyUndoGroups(target, actual){
+  const ok=[], failed=[];
+  UNDO_GROUPS.forEach(([k,label])=>{
+    const a=JSON.stringify(undoGroupValue(target,k)===undefined?null:undoGroupValue(target,k));
+    const b=JSON.stringify(undoGroupValue(actual,k)===undefined?null:undoGroupValue(actual,k));
+    (a===b ? ok : failed).push(label);
+  });
+  return {ok, failed};
 }
+/* Восстанавливает снимок по группам; каждая группа изолирована, ошибки собираются, а не глотаются. */
+function restoreState(s){
+  if(!s) return {failed:['снимок пуст']};
+  const failed=[];
+  const step=(name,fn)=>{ try{ fn(); }catch(e){ failed.push(name+' ('+(e&&e.message||e)+')'); } };
+  step('библиотека', ()=>{ LIB=s.LIB||{}; });
+  step('прогоны', ()=>{ BATCHES=s.BATCHES||{}; });
+  step('стили', ()=>{ STYLES=s.STYLES||STYLES; });
+  step('выделение', ()=>{
+    selectedId=s.selectedId||null;
+    checked=new Set(s.checked||[]);
+    if(s.styleFilter) styleFilter=s.styleFilter;
+  });
+  step('служебные группы', ()=>{ if(s.extra) restoreExtra(s.extra); });
+  step('сохранение', ()=>{ store.save(); store.saveBatches(); store.saveStyles(); });
+  step('интерфейс', ()=>{
+    renderLib();
+    if(selectedId && LIB[selectedId] && typeof selectTpl==='function') selectTpl(selectedId,true);
+    else { renderInspectorEmpty(); }
+    if(window.SB_Gallery && SB_Gallery.mode==='grid') SB_Gallery.rebuild(true);
+  });
+  return {failed};
+}
+
 function pushUndo(){
   const s=snapshotState(); if(!s) return;
   UNDO.push(s); if(UNDO.length>80) UNDO.shift();
@@ -1422,17 +1521,21 @@ function undo(){
   if(!UNDO.length){ toast('Нечего отменять'); return; }
   const cur=snapshotState();
   const prev=UNDO.pop();
+  const r=restoreState(prev);
+  const v=verifyUndoGroups(prev, snapshotState());
   if(cur) REDO.push(cur);
-  restoreState(prev);
-  toast('Отменено');
+  if(!r.failed.length && !v.failed.length) toast('Отменено: откачено групп — '+v.ok.length);
+  else toast('Откат неполный. Не восстановлено: '+[...r.failed, ...v.failed].join(', '));
 }
 function redo(){
   if(!REDO.length){ toast('Нечего повторить'); return; }
   const cur=snapshotState();
   const next=REDO.pop();
+  const r=restoreState(next);
+  const v=verifyUndoGroups(next, snapshotState());
   if(cur) UNDO.push(cur);
-  restoreState(next);
-  toast('Повторено');
+  if(!r.failed.length && !v.failed.length) toast('Повторено: групп — '+v.ok.length);
+  else toast('Повтор неполный. Не восстановлено: '+[...r.failed, ...v.failed].join(', '));
 }
 
 const store={
@@ -1546,7 +1649,12 @@ function normalizeInput(text){
       tpl2.aspect=normalizedFrame.aspect;
       tpl2.canvas=normalizedFrame.canvas;
       tpl2.frameContract=normalizedFrame.contract;
+    } else {
+      // без Frame Contract: метаданные входящего шаблона сохраняются, если они корректны
+      if(raw.aspect && window.SB_FORMAT && window.SB_FORMAT(String(raw.aspect))) tpl2.aspect=String(raw.aspect);
+      if(raw.canvas && +raw.canvas.width>0 && +raw.canvas.height>0) tpl2.canvas={ width:+raw.canvas.width, height:+raw.canvas.height };
     }
+    if(raw.favorite===true) tpl2.favorite=true;
     out.push(tpl2);
     // 🔸 Импорт по styleSystem: лог результата (создание стилей НЕ делаем — только известные ключи)
     const rawStyle=(raw.styleSystem||'').trim();
@@ -1739,7 +1847,7 @@ window.addEventListener('sb-manifest',onPoolManifest);
   // «Со ссылкой» убран из интерфейса: скрытый чекбокс сбрасываем, чтобы старое состояние не скрывало шаблоны
   if($('fLink').checked){ $('fLink').checked=false; batchNeedLink=false; }
   const refresh=()=>{ renderLib(); if(window.SB_Gallery && window.SB_Gallery.rebuild) window.SB_Gallery.rebuild(false); paint(); };
-  $('fbSel').addEventListener('click',()=>{ onlySelFilter=!onlySelFilter; refresh(); });
+  $('fbSel').addEventListener('click',()=>{ setOnlySelFilter(!onlySelFilter); refresh(); });
   $('fbNote').addEventListener('click',()=>{ const c=$('fNote'); c.checked=!c.checked; c.dispatchEvent(new Event('change')); });
   paint();
 })();
@@ -2525,36 +2633,33 @@ window.deleteSelectedStyle=function(){
 /* ============================================================
    ЭТАП 3: форматы и окно «Экспорт»
    • FORMATS — реестр форматов. Новый формат = одна строка (1:1, 4:3 и др. добавляются сюда).
-   • Окно «Экспорт» — единая точка входа: что (выделение / вся библиотека / стиль),
-     куда (Pano Montage Studio / Motion Studio / JSON для AI / архив), формат,
+   • Окно «Экспорт» — единая точка входа: что (выделение / вся библиотека / один или
+     несколько стилей чекбоксами), куда (librarymotion.js для PMS / JSON для AI),
      состав, проверка (ошибки блокируют, предупреждения показываются), отчёт.
-   • Существующие функции экспорта вызываются с временно подменённой выборкой.
-     Старые кнопки скрыты (не удалены): окно покрывает их полностью.
+   • Формат определяется автоматически (aspect каждого шаблона), блока формата нет.
+   • Архив — отдельное резервное копирование (кнопка в тулбаре), в окно экспорта не входит.
+   • Старые кнопки скрыты (не удалены): окно покрывает их полностью.
    ============================================================ */
 
-const FORMATS=(window.SB_FORMATS||[]).filter(f=>f.export).map(f=>({ id:f.id, label:f.label, w:f.frameSize.w, h:f.frameSize.h }));
 
-/* Версия шаблона для формата: оригинал своего формата, либо созданная конвертацией актуальная версия */
-function s3VersionFor(id, fmtId){
-  const t=LIB[id];
-  if(!t) return null;
-  if(!fmtId) return t;
-  if(t.aspect===fmtId) return t;
-  const cid=Object.keys(S2_CONV).find(c=>S2_CONV[c] && S2_CONV[c].src===id && S2_CONV[c].aspect===fmtId && LIB[c]);
-  return cid ? LIB[cid] : null;
+/* Принадлежность шаблона к стилям (styleSystem + styleSystems) — из motion-converter.js */
+function s3Membership(t){
+  if(window.SB_motionExporter && SB_motionExporter.membershipOf) return SB_motionExporter.membershipOf(t);
+  return [t.styleSystem||'default'];
 }
 
-/* Состав выгрузки по назначению — честно: что реально попадает в файл */
+/* Назначения окна. Motion Studio и архив в окно не входят (единый экспорт; архив — кнопка тулбара). */
 const S3_DEST={
-  pano:  { label:'Pano Montage Studio — library.js', scopeNote:'Шаблоны (структура, роли, AE-атрибуты). Прогоны, ссылки и комментарии в этот формат не входят.' },
-  motion:{ label:'Motion Studio',                    scopeNote:'Шаблоны выбранного формата. Прогоны и комментарии не входят.' },
-  ai:    { label:'JSON для AI (буфер + файл)',       scopeNote:'Поля шаблона: ID, название, группа, HTML, формат. Без прогонов.' },
-  archive:{label:'Архив (сохранить программу)',      scopeNote:'Всё: библиотека, стили, прогоны со ссылками, комментарии, даты, настройки. Всегда целиком.' }
+  library:{ label:'PMS — librarymotion.js (единый файл)', scopeNote:'Структура и HTML, Recompose-метаданные, motion/AE-контракт, entities по слотам, стили (styleSystem + styleSystems) и группы. Прогоны, ссылки и комментарии в файл не входят.' },
+  ai:     { label:'JSON для AI (буфер + файл)',           scopeNote:'Поля шаблона: ID, название, группа, HTML, стиль. Без прогонов.' }
 };
 
-function s3ScopeIds(scope, styleKey){
+function s3ScopeIds(scope, styleKeys){
   if(scope==='selected') return [...checked].filter(id=>LIB[id]);
-  if(scope==='style')    return Object.keys(LIB).filter(id=>LIB[id] && LIB[id].styleSystem===styleKey);
+  if(scope==='styles'){
+    const want=new Set(styleKeys||[]);
+    return Object.keys(LIB).filter(id=>LIB[id] && s3Membership(LIB[id]).some(k=>want.has(k)));
+  }
   return Object.keys(LIB);
 }
 
@@ -2562,62 +2667,42 @@ function s3ScopeIds(scope, styleKey){
 function s3Validate(cfg){
   const errors=[], warnings=[], out={};
   if(cfg.scope==='selected' && !checked.size) errors.push('Ничего не выделено: выбери шаблоны или выбери другую область.');
-  if(cfg.scope==='style' && !cfg.styleKey) errors.push('Не выбран стиль.');
-  const ids=s3ScopeIds(cfg.scope, cfg.styleKey);
+  if(cfg.scope==='styles' && !cfg.styleKeys.length) errors.push('Не отмечен ни один стиль.');
+  const ids=s3ScopeIds(cfg.scope, cfg.styleKeys);
   if(!ids.length && !errors.length) errors.push('В выбранной области нет шаблонов.');
-  const fmt=cfg.fmt ? FORMATS.find(f=>f.id===cfg.fmt) : null;
-  if(cfg.fmt && !fmt) errors.push(`Формат ${cfg.fmt} не описан в реестре FORMATS.`);
-  const missing=[];
   ids.forEach(id=>{
     const t=LIB[id];
     if(!t.html || !String(t.html).trim()){ errors.push(`${id}: пустой HTML — экспорт невозможен.`); return; }
     if(!t.label) warnings.push(`${id}: нет названия.`);
     if(t.batch && !BATCHES[t.batch]) warnings.push(`${id}: прогон не найден (шаблон уйдёт без прогона).`);
     if(t.styleSystem && !STYLES[t.styleSystem]) warnings.push(`${id}: стиль не найден (будет «Базовый»).`);
-    const v=s3VersionFor(id, cfg.fmt);
-    if(!v){ missing.push(id); return; }
-    if(v!==t && s2Outdated(v.tpl)) warnings.push(`${v.tpl}: устарела (исходник изменился) — экспортируется старая версия, пересоздайте через Converted.`);
-    out[id]=v;
+    if(s2Outdated(id)) warnings.push(`${id}: конвертированная версия устарела (исходник изменился) — пересоздайте через «↻ Converted».`);
+    out[id]=t;
   });
-  if(missing.length) errors.push(`Нет версии в формате ${cfg.fmt}: ${missing.length} шт. (${missing.slice(0,6).join(', ')}${missing.length>6?'…':''}). Создайте через «↻ Converted» или сними их с выделения.`);
-  return { ids, out, errors, warnings, fmt:cfg.fmt||null };
-}
-
-/* Временная подмена выборки для существующих экспортёров */
-function s3WithLib(subset, keys, fn){
-  const savedLib=LIB, savedChecked=checked;
-  LIB=subset; checked=new Set(keys);
-  try{ return fn(); }
-  finally{ LIB=savedLib; checked=savedChecked; }
+  return { ids, out, errors, warnings };
 }
 
 function s3Run(cfg, v){
   const keys=Object.keys(v.out);
-  const subset={}; keys.forEach(id=>{ subset[id]=v.out[id]; });
-  const report={ dest:cfg.dest, count:keys.length, skipped:0, warnings:v.warnings.slice(), done:[], ok:true };
-  if(cfg.dest==='archive'){
-    document.getElementById('btnArchiveSave').click();
-    report.done.push('Архив сохранён (вся библиотека, стили и прогоны).');
-  }else if(cfg.dest==='pano'){
-    s3WithLib(subset, keys, ()=>{
-      download('library.js', buildLibraryJs());
-    });
-    report.done.push(`library.js: ${keys.length} шаблон(ов).`);
-  }else if(cfg.dest==='motion'){
-    s3WithLib(subset, keys, ()=>{ document.getElementById('btnExportMotion').click(); });
-    report.done.push(`Motion Studio: открыт экспорт для ${keys.length} шаблон(ов).`);
+  const report={ dest:cfg.dest, count:keys.length, warnings:v.warnings.slice(), done:[] };
+  if(cfg.dest==='library'){
+    const res=SB_motionExporter.buildUnifiedLibraryJs(keys.map(id=>v.out[id]));
+    download('librarymotion.js', res.text);
+    report.count=res.count;
+    report.done.push(`librarymotion.js: ${res.count} шаблон(ов) из ${res.input} записей; дубликатов объединено: ${res.merged}.`);
+    res.warnings.forEach(w=>report.warnings.push(w));
   }else if(cfg.dest==='ai'){
-    const data=keys.map(id=>{ const t=subset[id]; return { tpl:t.tpl, family:t.family, group:t.group, label:t.label, code:t.code, icon:t.icon, kind:t.kind, single:t.single, desc:t.desc, aspect:t.aspect||null, styleSystem:t.styleSystem||'default', html:t.html }; });
+    const data=keys.map(id=>{ const t=v.out[id]; return { tpl:t.tpl, family:t.family, group:t.group, label:t.label, code:t.code, icon:t.icon, kind:t.kind, single:t.single, desc:t.desc, aspect:t.aspect||null, styleSystem:t.styleSystem||'default', html:t.html }; });
     const text=JSON.stringify(data,null,2);
     download(`sandbox_ai_${keys.length}.json`, text);
-    try{ navigator.clipboard && navigator.clipboard.writeText(text); report.done.push('JSON скопирован в буфер и сохранён файлом.'); }
+    try{ navigator.clipboard.writeText(text).then(()=>{}, ()=>{}); report.done.push('JSON сохранён файлом (и отправлен в буфер, если буфер доступен).'); }
     catch(e){ report.done.push('JSON сохранён файлом (буфер недоступен).'); }
   }
   return report;
 }
 
 /* ---------- Окно ---------- */
-let S3_STATE={ scope:null, styleKey:null, dest:'pano', fmt:null, report:null };
+let S3_STATE={ scope:null, styleKeys:[], dest:'library', report:null };
 
 function s3EnsureDom(){
   let el=document.getElementById('s3Export');
@@ -2638,12 +2723,33 @@ function s3EnsureDom(){
   el.querySelector('#s3Close').onclick=()=>el.classList.remove('on');
   el.querySelector('#s3Cancel').onclick=()=>el.classList.remove('on');
   el.querySelector('#s3Go').onclick=()=>s3Go();
+  // состояние раскрытия списка стилей помним отдельно: перерисовка окна его не сбрасывает
+  el.addEventListener('toggle',e=>{ if(e.target && e.target.id==='s3StylesBox') S3_STATE.stylesOpen=e.target.open; },true);
+  // поиск по стилям: фильтрация строк без перерисовки (фокус в поле сохраняется)
+  el.addEventListener('input',e=>{
+    if(e.target.id!=='s3StyleQ') return;
+    S3_STATE.styleQuery=e.target.value;
+    const q=(e.target.value||'').trim().toLowerCase();
+    el.querySelectorAll('#s3StyleList .s3-st').forEach(row=>{ row.style.display=(!q||row.dataset.search.includes(q))?'':'none'; });
+  });
+  el.addEventListener('click',e=>{
+    const id=e.target && e.target.id;
+    if(id!=='s3StyleAll' && id!=='s3StyleNone') return;
+    const q=(S3_STATE.styleQuery||'').trim().toLowerCase();
+    const set=new Set(id==='s3StyleAll' ? (S3_STATE.styleKeys||[]) : []);
+    if(id==='s3StyleAll') Object.keys(STYLES).forEach(k=>{ const row=[...el.querySelectorAll('#s3StyleList .s3-st')].find(r=>r.querySelector('input').value===k); if(!q || (row && row.dataset.search.includes(q))) set.add(k); });
+    S3_STATE.styleKeys=[...set]; S3_STATE.scope='styles'; S3_STATE.report=null;
+    s3Render();
+  });
   el.addEventListener('change',e=>{
     const t=e.target;
     if(t.name==='s3scope'){ S3_STATE.scope=t.value; }
     else if(t.name==='s3dest'){ S3_STATE.dest=t.value; }
-    else if(t.name==='s3fmt'){ S3_STATE.fmt=t.value||null; }
-    else if(t.name==='s3style'){ S3_STATE.styleKey=t.value; S3_STATE.scope='style'; }
+    else if(t.name==='s3style'){
+      const set=new Set(S3_STATE.styleKeys||[]);
+      if(t.checked) set.add(t.value); else set.delete(t.value);
+      S3_STATE.styleKeys=[...set]; S3_STATE.scope='styles';
+    }
     S3_STATE.report=null;
     s3Render();
   });
@@ -2651,7 +2757,7 @@ function s3EnsureDom(){
 }
 
 function s3Go(){
-  const cfg={ scope:S3_STATE.scope, styleKey:S3_STATE.styleKey, dest:S3_STATE.dest, fmt:S3_STATE.fmt };
+  const cfg={ scope:S3_STATE.scope, styleKeys:(S3_STATE.styleKeys||[]).slice(), dest:S3_STATE.dest };
   const v=s3Validate(cfg);
   if(v.errors.length){ s3Render(); toast('Экспорт заблокирован: исправь ошибки'); return; }
   const rep=s3Run(cfg, v);
@@ -2666,36 +2772,44 @@ function s3Render(){
   const selCount=[...checked].filter(id=>LIB[id]).length;
   const allCount=Object.keys(LIB).length;
   const styleKeys=Object.keys(STYLES);
-  const cfg={ scope:S3_STATE.scope||(selCount?'selected':'all'), styleKey:S3_STATE.styleKey||styleKeys[0], dest:S3_STATE.dest, fmt:S3_STATE.fmt };
-  S3_STATE.scope=cfg.scope; S3_STATE.styleKey=cfg.styleKey;
+  const cfg={ scope:S3_STATE.scope||(selCount?'selected':'all'), styleKeys:(S3_STATE.styleKeys||[]).filter(k=>STYLES[k]), dest:S3_STATE.dest||'library' };
+  S3_STATE.scope=cfg.scope; S3_STATE.styleKeys=cfg.styleKeys;
   const v=s3Validate(cfg);
   const dest=S3_DEST[cfg.dest];
   const radio=(name,val,checkedNow,label,extra='')=>`<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="radio" name="${name}" value="${esc(val)}"${checkedNow?' checked':''}${extra}> ${label}</label>`;
-  const scopeLabel=(k)=>k==='selected'?`Выделенные (${selCount})`:k==='all'?`Вся библиотека (${allCount})`:'Один стиль';
-  const styleOpts=styleKeys.map(k=>`<option value="${esc(k)}"${cfg.styleKey===k?' selected':''}>${esc(STYLES[k].name)} (${Object.values(LIB).filter(t=>t.styleSystem===k).length})</option>`).join('');
-  const fmtRadios=radio('s3fmt','',!cfg.fmt,'Оригинал (без конвертации)')+
-    FORMATS.map(f=>{ const n=Object.keys(LIB).filter(id=>LIB[id].aspect===f.id).length; return radio('s3fmt',f.id,cfg.fmt===f.id,`${f.label} · ${f.w}×${f.h} · нативных: ${n}`); }).join('');
+  const styleCount=k=>Object.keys(LIB).filter(id=>s3Membership(LIB[id]).includes(k)).length;
+  const styleRows=styleKeys.map(k=>`<label class="s3-st" data-search="${esc(((STYLES[k].name||k)+' '+k).toLowerCase())}" style="display:flex;gap:8px;align-items:center;padding:3px 0"><input type="checkbox" name="s3style" value="${esc(k)}"${cfg.styleKeys.includes(k)?' checked':''}> ${esc(STYLES[k].name||k)} <span style="color:#8b93a1">(${styleCount(k)})</span></label>`).join('');
+  const styleChecks=`<details id="s3StylesBox" class="s3-stbox"${S3_STATE.stylesOpen?' open':''} style="margin-top:6px;border:1px solid #2a2f3a;border-radius:8px;padding:6px 9px">
+      <summary class="s3-stsum" style="cursor:pointer;font-size:12px;user-select:none;display:flex;align-items:center;gap:6px;list-style:none"><svg class="s3-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" style="flex:none;transition:transform .15s"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#7d8594" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Стили: выбрано <b id="s3StyleCount">${cfg.styleKeys.length}</b> из ${styleKeys.length}</span></summary>
+      <div style="display:flex;gap:6px;margin:7px 0">
+        <input id="s3StyleQ" type="search" placeholder="Поиск стиля…" value="${esc(S3_STATE.styleQuery||'')}" style="flex:1;min-width:0;font:inherit;font-size:12px;padding:4px 7px;border-radius:6px;background:var(--ui-panel-2,#15181f);color:inherit;border:1px solid #2a2f3a">
+        <button type="button" class="tb-btn" id="s3StyleAll" title="Отметить стили, подходящие под поиск">Выбрать все</button>
+        <button type="button" class="tb-btn" id="s3StyleNone" title="Снять выбор со всех стилей">Снять все</button>
+      </div>
+      <div id="s3StyleList" style="max-height:170px;overflow-y:auto;padding-right:4px">${styleRows}</div>
+    </details>`;
   const destRadios=Object.keys(S3_DEST).map(k=>radio('s3dest',k,cfg.dest===k,esc(S3_DEST[k].label))).join('');
   const errBlock=v.errors.length?`<div style="background:#2b171b;color:#ff9ca5;border-radius:8px;padding:8px 10px;margin-top:8px"><b>Ошибки (блокируют экспорт):</b>${v.errors.map(e=>`<div>• ${esc(e)}</div>`).join('')}</div>`:'';
   const warnBlock=v.warnings.length?`<div style="background:#2a2412;color:#e8c96a;border-radius:8px;padding:8px 10px;margin-top:8px"><b>Предупреждения (${v.warnings.length}):</b><div style="max-height:110px;overflow:auto">${v.warnings.slice(0,60).map(w=>`<div>• ${esc(w)}</div>`).join('')}${v.warnings.length>60?'<div>…</div>':''}</div></div>`:'';
   const rep=S3_STATE.report;
-  const repBlock=rep?`<div style="background:#14261d;color:#9ff0c3;border-radius:8px;padding:8px 10px;margin-top:8px"><b>Результат</b><div>Назначение: ${esc(S3_DEST[rep.dest].label)}</div><div>Шаблонов: ${rep.count}</div>${rep.done.map(d=>`<div>• ${esc(d)}</div>`).join('')}${rep.warnings.length?`<div>Предупреждений: ${rep.warnings.length}</div>`:''}</div>`:'';
+  const repBlock=rep?`<div style="background:#14261d;color:#9ff0c3;border-radius:8px;padding:8px 10px;margin-top:8px"><b>Результат</b><div>Назначение: ${esc(S3_DEST[rep.dest].label)}</div><div>Шаблонов: ${rep.count}</div>${rep.done.map(d=>`<div>• ${esc(d)}</div>`).join('')}${rep.warnings.length?`<div style="margin-top:6px">Предупреждений: ${rep.warnings.length}</div><div style="max-height:120px;overflow:auto">${rep.warnings.slice(0,40).map(w=>`<div>• ${esc(w)}</div>`).join('')}</div>`:''}</div>`:'';
   const sec=(t)=>`<div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--ui-muted,#8b93a1);margin:14px 0 6px">${t}</div>`;
   body.innerHTML=
     sec('1. Что экспортировать')+
-    radio('s3scope','selected',cfg.scope==='selected',scopeLabel('selected'),selCount?'':' disabled')+
-    radio('s3scope','all',cfg.scope==='all',scopeLabel('all'))+
-    `<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="radio" name="s3scope" value="style"${cfg.scope==='style'?' checked':''}> Один стиль: <select name="s3style" style="font:inherit;padding:3px 6px;border-radius:6px">${styleOpts}</select></label>`+
+    radio('s3scope','selected',cfg.scope==='selected',`Выделенные (${selCount})`,selCount?'':' disabled')+
+    radio('s3scope','all',cfg.scope==='all',`Вся библиотека (${allCount})`)+
+    radio('s3scope','styles',cfg.scope==='styles',`Все шаблоны выбранных стилей`)+
+    styleChecks+
     sec('2. Куда')+destRadios+
-    sec('3. Формат')+fmtRadios+
-    sec('4. Состав')+`<div style="color:#b8c0cc">${esc(dest.scopeNote)}</div><div style="color:#b8c0cc;margin-top:4px">AE-атрибуты — часть структуры шаблона, отдельного типа нет.</div>`+
-    sec('5. Проверка')+`<div>${v.ids.length?`К выгрузке: <b>${Object.keys(v.out).length}</b> из ${v.ids.length}`:'Нечего выгружать'}</div>`+errBlock+warnBlock+
+    sec('3. Состав')+`<div style="color:#b8c0cc">${esc(dest.scopeNote)}</div>`+
+    `<div style="color:#b8c0cc;margin-top:4px">Формат определяется автоматически: каждый шаблон экспортируется в своём aspect.</div>`+
+    sec('4. Проверка')+`<div>${v.ids.length?`К выгрузке: <b>${Object.keys(v.out).length}</b> из ${v.ids.length}`:'Нечего выгружать'}</div>`+errBlock+warnBlock+
     (!v.errors.length && !v.warnings.length?'<div style="color:#9ff0c3;margin-top:6px">Проблем нет.</div>':'')+
-    sec('6. Результат')+(repBlock||'<div style="color:#b8c0cc">Пока не запускался.</div>');
+    sec('5. Результат')+(repBlock||'<div style="color:#b8c0cc">Пока не запускался.</div>');
   const go=el.querySelector('#s3Go');
   go.disabled=!!v.errors.length;
   go.style.opacity=v.errors.length?'.45':'1';
-  go.textContent=cfg.dest==='archive'?'Сохранить архив':'Экспорт';
+  go.textContent='Экспорт';
 }
 
 function s3Open(){
@@ -2707,7 +2821,7 @@ function s3Open(){
 
 /* Кнопка «⬇ Экспорт» в верхней панели; старые кнопки скрыты — окно их покрывает */
 (function s3Topbar(){
-  const oldIds=['btnExport','btnExportMotion','btnExportLibraryJs'];
+  const oldIds=['btnExport','btnExportLibraryJs'];
   const anchor=document.getElementById('btnExportLibraryJs');
   if(!anchor || document.getElementById('s3Btn')) return;
   const b=document.createElement('button');
@@ -2936,13 +3050,14 @@ function deleteSelectedStyle(){
   toast('Стиль удалён');
 }
 function renderLib(){
+  if(window.SB_inspectorActive && window.SB_inspectorActive()) { window.SB_renderInspector(); return; }
   if(window.SB_filterBtns) window.SB_filterBtns();
   renderStyleTopbar();
   renderTopFilterDDs(); // Этап 11: checkbox-фильтры групп/прогонов
   const groups=libByGroups();
   const total=Object.keys(LIB).length;
   const sel=checked.size;
-  libStats.innerHTML=`Шаблонов: <b>${total}</b> · выбрано: <b>${sel}</b>`;
+  libStats.innerHTML=`Шаблонов: <b>${total}</b> · выбрано: <b>${sel}</b>`+(onlySelFilter?` · в фильтре: <b>${filterSet?filterSet.size:0}</b>`:'');
   renderBulkBar(); // Этап 5: обновляем панель массовых действий
   visibleOrder=[]; // Этап 6: сбрасываем порядок перед перестроением
   if(!total){
@@ -2997,6 +3112,7 @@ function renderLib(){
     });
     h+=`</div></div>`;
   });
+  if(onlySelFilter && !visibleOrder.length) h='<div class="lib-empty">Фильтр «выбранные» пуст.<br>Выдели шаблоны в обычном режиме и включи фильтр снова.</div>';
   rail.innerHTML=h;
 
   rail.querySelectorAll('.grp-h').forEach(hh=>{
@@ -3226,10 +3342,11 @@ async function refreshRealInspector(t){
 function renderInspector(t){
   const info=analyzeTemplate(t.html);
   let h=`<h4>Параметры шаблона</h4><div class="sub">ID: ${esc(t.tpl)}</div>`;
-  /* Этап 11: принадлежность шаблона — Группа и Стиль подняты максимально высоко,
-     сразу под постоянным блоком «Действия» */
-  h+=`<div id="realSizeBox">${realSizeHTML(t, REAL_METRICS.get(t.tpl))}</div>`;
+  /* Панель адаптации — сразу под заголовком: её позиция не зависит от высоты блока измерения,
+     который у разных шаблонов разный (иначе панель «прыгает» при переключении шаблонов). */
   h+=`<div id="rcBox"></div>`;
+  /* Этап 11: принадлежность шаблона — Группа и Стиль подняты максимально высоко */
+  h+=`<div id="realSizeBox">${realSizeHTML(t, REAL_METRICS.get(t.tpl))}</div>`;
   if(window.SB_FRAME_CONTRACT){ h+=window.SB_FRAME_CONTRACT.inspectorHTML(t); }
   h+=`<div class="fld"><label>Группа</label><select data-f="group">${GROUP_ORDER.map(g=>`<option value="${g}"${g===t.group?' selected':''}>${g}</option>`).join('')}</select></div>`;
   h+=`<div class="fld"><label>Стиль (дизайн-система)</label><select data-f="styleSystem">${Object.keys(STYLES).map(k=>`<option value="${esc(k)}"${(t.styleSystem||'default')===k?' selected':''}>${esc(STYLES[k].name)}</option>`).join('')}</select></div>`;
@@ -3366,6 +3483,12 @@ function delTpl(t){
   pushUndo();
   const bId=t.batch;
   delete LIB[t.tpl]; checked.delete(t.tpl);
+  /* связанные данные: назначения изображений и конверсии, у которых исчез исходник */
+  if(IMG_ASSIGN[t.tpl]) delete IMG_ASSIGN[t.tpl];
+  if(S2_CONV[t.tpl]) delete S2_CONV[t.tpl];
+  Object.keys(S2_CONV).forEach(c=>{ if(S2_CONV[c] && !LIB[S2_CONV[c].src]) delete S2_CONV[c]; });
+  if(typeof s2SaveConv==='function') s2SaveConv();
+  if(typeof saveImgAssign==='function') saveImgAssign();
   if(selectedId===t.tpl){ selectedId=null; preview.innerHTML='<div class="stage-empty"><b>Шаблон удалён</b>Выбери другой слева.</div>'; stageHead.style.display='none'; renderInspectorEmpty(); }
   /* Этап 4: если это был последний шаблон прогона — убираем пустую запись */
   if(bId && BATCHES[bId]){
@@ -3489,7 +3612,22 @@ function editHtml(t){
    ADD JSON MODAL
    ============================================================ */
 const addModal=document.getElementById('addModal');
-document.getElementById('btnAdd').onclick=()=>{ document.getElementById('validLog').innerHTML=''; const fc=document.getElementById('importFrameContract'); if(fc) fc.value='none'; addModal.classList.add('on'); };
+document.getElementById('btnAdd').onclick=()=>{ document.getElementById('validLog').innerHTML=''; const fc=document.getElementById('importFrameContract'); if(fc) fc.value='none'; fillImportStyles(); addModal.classList.add('on'); };
+/* Импорт: выбор стиля (существующий / новый / как в JSON) */
+function fillImportStyles(){
+  const sel=document.getElementById('importStyle'); if(!sel) return;
+  const prev=sel.value||'';
+  sel.innerHTML='<option value="">Как в JSON (styleSystem, иначе «Базовый»)</option>'
+    +Object.keys(STYLES).map(k=>`<option value="${esc(k)}">${esc(STYLES[k].name||k)} (${esc(k)})</option>`).join('')
+    +'<option value="__new__">+ Создать новый стиль…</option>';
+  sel.value=[...sel.options].some(o=>o.value===prev)?prev:'';
+  toggleImportStyleNew();
+}
+function toggleImportStyleNew(){
+  const sel=document.getElementById('importStyle'), inp=document.getElementById('importStyleNew');
+  if(inp) inp.style.display=(sel && sel.value==='__new__')?'block':'none';
+}
+document.getElementById('importStyle').onchange=toggleImportStyleNew;
 document.getElementById('addClose').onclick=()=>addModal.classList.remove('on');
 
 document.getElementById('btnValidate').onclick=()=>{
@@ -3507,6 +3645,20 @@ document.getElementById('btnAddApply').onclick=()=>{
     /* Этап 2: режим импорта — новые (уникальный ID) или перезапись */
   const mode=(document.querySelector('input[name="importMode"]:checked')||{}).value||'new';
 
+  /* Импорт: стиль пачки. Проверки — до любых изменений данных. */
+  const styleSel=(document.getElementById('importStyle')||{}).value||'';
+  let importStyleKey=null, createStyleName=null;
+  if(styleSel==='__new__'){
+    createStyleName=((document.getElementById('importStyleNew')||{}).value||'').trim();
+    if(!createStyleName){ log.innerHTML='<span class="err">✕ Укажи название нового стиля</span>'; return; }
+    if(Object.values(STYLES).some(x=>x && String(x.name).toLowerCase()===createStyleName.toLowerCase())){
+      log.innerHTML='<span class="err">✕ Стиль с таким названием уже есть — выбери его в списке</span>'; return;
+    }
+  } else if(styleSel){
+    if(!STYLES[styleSel]){ log.innerHTML=`<span class="err">✕ Стиль «${esc(styleSel)}» не найден</span>`; return; }
+    importStyleKey=styleSel;
+  }
+
   /* Этап 4: заводим прогон под эту пачку */
   const bLabel=(document.getElementById('batchLabel').value||'').trim();
   const bNote=(document.getElementById('batchNote').value||'').trim();
@@ -3516,12 +3668,20 @@ document.getElementById('btnAddApply').onclick=()=>{
     note:bNote, link:bLink, color:nextBatchColor(), createdAt:Date.now(), count:0 };
 
   pushUndo();
+  if(createStyleName){
+    importStyleKey=s2NewStyleKey(createStyleName);
+    const palette=(typeof BATCH_COLORS!=='undefined')?BATCH_COLORS:['#5b8cff'];
+    STYLES[importStyleKey]={ name:createStyleName, color:palette[Object.keys(STYLES).length % palette.length] };
+    store.saveStyles();
+  }
+  batch.styleSystem=importStyleKey||null;   // связь пачки со стилем (для выбранного стиля)
   let added=0, renamed=0, firstId=null;
   res.templates.forEach(t=>{
     if(mode==='new'){
       const uid=makeUniqueTpl(t.tpl);
       if(uid!==t.tpl){ t.tpl=uid; renamed++; }
     }
+    if(importStyleKey) t.styleSystem=importStyleKey;   // стиль пачки; без выбора — из JSON
     t.batch=batchId;          // привязка к прогону
     batch.count++;
     LIB[t.tpl]=t; added++;
@@ -3770,62 +3930,16 @@ function download(filename, text){
    Site Builder подхватывает его тегом <script> при открытии.
    Единый источник правды = Sandbox (это его полный свежий слепок).
    ============================================================ */
+/* Единый экспорт librarymotion.js — одна реализация в motion-converter.js (SB_motionExporter).
+   Имя оставлено для совместимости вызовов; возвращает текст файла. */
 function buildLibraryJs(){
-  // берём ВСЮ библиотеку, дедуп по tpl+html (как в паках)
-  const all=Object.values(LIB);
-  const seen=new Set(), uniq=[];
-  all.forEach(t=>{ const h=tplHash(t); if(seen.has(h)) return; seen.add(h); uniq.push(t); });
-
-  // реестр стилей (имя + цвет) — Site Builder сохранит его в память
-  const styleReg={};
-  Object.keys(STYLES).forEach(k=>{
-    styleReg[k]={ name:STYLES[k].name||k, color:STYLES[k].color||'' };
-  });
-
-  const body=uniq.map(t=>{
-    const html=(t.html||'').replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$\{/g,'\\${');
-    const fav=!!t.favorite;
-    const geo=[t.aspect?`aspect:${JSON.stringify(t.aspect)},`:'',
-      t.canvas?`canvas:${JSON.stringify({width:t.canvas.width,height:t.canvas.height})},`:''].filter(Boolean).join('\n    ');
-    const styleSystem=(t.styleSystem && STYLES[t.styleSystem]) ? t.styleSystem : 'default';
-    const rcx=(window.RC_pickMeta && RC_pickMeta(t)) || null;
-    const rcLines=rcx ? Object.keys(rcx).map(k=>`    ${k}:${JSON.stringify(rcx[k])},\n`).join('') : '';
-    return `  {
-    tpl:${JSON.stringify(t.tpl)}, family:${JSON.stringify(t.family)}, group:${JSON.stringify(t.group)},
-    label:${JSON.stringify(t.label)}, code:${JSON.stringify(t.code||'')}, icon:${JSON.stringify(t.icon||'▧')},${t.single?' single:true,':''}
-    kind:${JSON.stringify(t.kind||'static')},
-    desc:${JSON.stringify(t.desc||'')},
-    styleSystem:${JSON.stringify(styleSystem)},
-    favorite:${fav},
-    ${geo}
-${rcLines}    build:i=>\`${html}\`
-  }`;
-  }).join(',\n\n');
-
-  return `/* ============================================================
-   library.js — единый самозагружающийся файл шаблонов.
-   Сгенерировано Sandbox. Шаблонов: ${uniq.length}
-   Заменяет пак-файлы (pack.*.js). Кладётся в templates/.
-   ============================================================ */
-(function(){
-  const STYLE_SYSTEMS=${JSON.stringify(styleReg,null,2)};
-  const LIBRARY=[
-
-${body}
-
-  ];
-  if(window.SB_registerStyleSystems){ window.SB_registerStyleSystems(STYLE_SYSTEMS); }
-  else{ window.SB_PENDING_STYLE_SYSTEMS=Object.assign(window.SB_PENDING_STYLE_SYSTEMS||{}, STYLE_SYSTEMS); }
-  if(window.SB_registerTemplates){ window.SB_registerTemplates(LIBRARY); }
-  else{ window.SB_PENDING_TEMPLATES=(window.SB_PENDING_TEMPLATES||[]).concat(LIBRARY); }
-})();
-`;
+  return SB_motionExporter.buildUnifiedLibraryJs(Object.values(LIB)).text;
 }
 
 document.getElementById('btnExportLibraryJs').onclick=()=>{
   if(!Object.keys(LIB).length){ toast('Библиотека пуста'); return; }
-  download('library.js', buildLibraryJs());
-  toast('library.js собран. Положи его в templates/ (заменив паки)');
+  download('librarymotion.js', buildLibraryJs());
+  toast('librarymotion.js собран. Положи его в templates/');
 };
 document.getElementById('expDownload').onclick=()=>{
   const set=exportSet();
@@ -3856,8 +3970,13 @@ document.getElementById('btnArchiveSave').onclick=()=>{
     hotkeys:HOTKEYS,
     prompts:PROMPTS,
     pfolders:PFOLDERS,
+    conv:S2_CONV,          // связи «исходник → конвертированная версия» (localStorage sandbox_conv)
+    imgAssign:IMG_ASSIGN,  // назначения изображений по слотам (localStorage sandbox_img_assign)
+    imgMode:IMG_MODE,      // режимы слотов изображений (localStorage sandbox_img_mode)
+    normBackup:NORM_BACKUP,// исходный HTML до нормализации (localStorage sandbox_norm_backup)
     builderCfg:builderCfg
   };
+  // sandbox_ui — состояние экрана (режим, фильтры, вкладка), не данные: в архив не входит
   download('sandbox-library.json', JSON.stringify(data,null,2));
   toast('Архив сохранён: шаблоны + стили + прогоны + промты + настройки');
 };
@@ -3879,58 +3998,94 @@ document.getElementById('archiveFile').onchange=e=>{
       }
       const lib=data.lib||data; // допускаем и «голый» объект LIB
       if(typeof lib!=='object'){ toast('Неверный формат архива'); return; }
-      // v3: восстанавливаем стили/прогоны ДО шаблонов, чтобы ссылки не обнулялись
-      if(data.styleSystems && typeof data.styleSystems==='object'){
-        STYLES=Object.assign({'default':{name:'Базовый',color:'#8b93a1'}}, data.styleSystems);
-        store.saveStyles();
+      const isFull = data.format==='sandbox-archive' || !!data.lib;
+      /* Нормализация шаблонов архива (как при загрузке библиотеки) */
+      const incoming={};
+      Object.values(lib).forEach(t=>{
+        if(!(t&&t.tpl&&t.html)) return;
+        if(!GROUP_ORDER.includes(t.group)) t.group='Секции';
+        if(!t.kind) t.kind=detectKind(t.html);
+        if(!t.family) t.family=t.tpl;
+        if(!t.icon) t.icon='▧';
+        if(!t.styleSystem) t.styleSystem='default';
+        if(t.batch===undefined) t.batch=null;
+        if(!t.editable) t.editable={text:true,frames:true};
+        if(t.favorite===undefined) t.favorite=false;
+        incoming[t.tpl]=t;
+      });
+      const incomingN=Object.keys(incoming).length;
+
+      if(!isFull){
+        /* «Голый» объект библиотеки: слияние, как раньше. Остальное состояние не трогаем. */
+        let merged=0;
+        Object.values(incoming).forEach(t=>{
+          if(!STYLES[t.styleSystem]) t.styleSystem='default';
+          if(t.batch && !BATCHES[t.batch]) t.batch=null;
+          LIB[t.tpl]=t; merged++;
+        });
+        store.save(); renderBulkBar(); renderLib();
+        toast('Библиотека: добавлено/обновлено '+merged+' шаблонов (архив без стилей и прогонов)');
+        e.target.value='';
+        return;
       }
-      if(data.batches && typeof data.batches==='object'){
-        BATCHES=Object.assign({}, data.batches);
-        store.saveBatches();
-      }
+
+      /* Полный архив: восстанавливает ВСЕ группы целиком. Данные текущего состояния,
+         которых нет в архиве, сбрасываются к значениям по умолчанию (а не остаются). */
+      const groups=[['styleSystems','стили'],['batches','прогоны'],['hotkeys','горячие клавиши'],['pfolders','папки промтов'],['prompts','промты'],['conv','связи конвертаций'],['imgAssign','назначения изображений'],['imgMode','режимы изображений'],['normBackup','резервная копия нормализации'],['builderCfg','настройки сборщика']];
+      const absent=groups.filter(g=>!(g[0] in data)).map(g=>g[1]);
+      const curN=Object.keys(LIB).length;
+      const msg='Заменить текущее состояние архивом?\n'
+        +`Шаблонов: ${curN} → ${incomingN}. Стили, прогоны, промты, горячие клавиши и связи будут заменены содержимым архива.`
+        +(absent.length?`\nВ архиве нет: ${absent.join(', ')} — эти данные будут сброшены к значениям по умолчанию.`:'')
+        +'\n\nОтмена этой операции — Ctrl+Z (библиотека, стили, прогоны).';
+      if(!confirm(msg)){ e.target.value=''; return; }
+
+      pushUndo();
+      LIB=incoming;
+      STYLES=Object.assign({'default':{name:'Базовый',color:'#8b93a1'}}, (data.styleSystems && typeof data.styleSystems==='object') ? data.styleSystems : {});
+      if(!STYLES.default) STYLES.default={name:'Базовый',color:'#8b93a1'};
+      BATCHES=(data.batches && typeof data.batches==='object') ? Object.assign({}, data.batches) : {};
+      Object.values(LIB).forEach(t=>{
+        if(!STYLES[t.styleSystem]) t.styleSystem='default';
+        if(t.batch && !BATCHES[t.batch]) t.batch=null;
+      });
+      HOTKEYS={}; Object.keys(HOTKEY_DEFAULTS).forEach(a=>HOTKEYS[a]=HOTKEY_DEFAULTS[a].combo);
       if(data.hotkeys && typeof data.hotkeys==='object'){
         Object.keys(HOTKEYS).forEach(a=>{ if(typeof data.hotkeys[a]==='string') HOTKEYS[a]=data.hotkeys[a]; });
-        store.saveHotkeys();
       }
-      if(data.pfolders && typeof data.pfolders==='object'){
-        PFOLDERS=Object.assign({}, data.pfolders);
-        store.savePFolders();
-      }
-      if(data.prompts && typeof data.prompts==='object'){
-        PROMPTS=Object.assign({}, data.prompts);
-        Object.values(PROMPTS).forEach(p=>{
-          if(p.folder===undefined) p.folder=null;
-          if(p.folder && !PFOLDERS[p.folder]) p.folder=null;
-          if(!p.role || !PROMPT_ROLES[p.role]) p.role='other';
-        });
-        store.savePrompts();
-      }
-      if(data.builderCfg && typeof data.builderCfg==='object'){
-        try{ localStorage.setItem('sandbox_builder_cfg', JSON.stringify(data.builderCfg)); }catch(e){}
-        if(data.builderCfg.pbDevice && PB_DEVICE_DEFAULTS[data.builderCfg.pbDevice]) pbDevice=data.builderCfg.pbDevice;
-        if(data.builderCfg.pbDeviceTexts && typeof data.builderCfg.pbDeviceTexts==='object') pbDeviceTexts=data.builderCfg.pbDeviceTexts;
-        if(typeof data.builderCfg.pbStyleKey==='string') pbStyleKey=data.builderCfg.pbStyleKey;
-        if(typeof data.builderCfg.pbFrame==='string') pbFrame=data.builderCfg.pbFrame;
-      }
-      let merged=0;
-      Object.values(lib).forEach(t=>{
-        if(t&&t.tpl&&t.html){
-          if(!GROUP_ORDER.includes(t.group)) t.group='Секции';
-          if(!t.kind) t.kind=detectKind(t.html);
-          if(!t.family) t.family=t.tpl;
-          if(!t.icon) t.icon='▧';
-          if(!t.styleSystem||!STYLES[t.styleSystem]) t.styleSystem='default'; // Этап 3
-          if(t.batch===undefined) t.batch=null;                 // Этап 4
-          if(t.batch && !BATCHES[t.batch]) t.batch=null;
-          if(t.favorite===undefined) t.favorite=false;          // Этап 6
-          if(!t.editable) t.editable={text:true,frames:true};
-          LIB[t.tpl]=t; merged++;
-        }
+      PFOLDERS=(data.pfolders && typeof data.pfolders==='object') ? Object.assign({}, data.pfolders) : {};
+      PROMPTS=(data.prompts && typeof data.prompts==='object') ? Object.assign({}, data.prompts) : {};
+      Object.values(PROMPTS).forEach(p=>{
+        if(p.folder===undefined) p.folder=null;
+        if(p.folder && !PFOLDERS[p.folder]) p.folder=null;
+        if(!p.role || !PROMPT_ROLES[p.role]) p.role='other';
       });
-      store.save();
-      try{ renderPrompts(); }catch(e){}
+      S2_CONV=(data.conv && typeof data.conv==='object') ? Object.assign({}, data.conv) : {};
+      IMG_ASSIGN=(data.imgAssign && typeof data.imgAssign==='object') ? Object.assign({}, data.imgAssign) : {};
+      IMG_MODE=(data.imgMode && typeof data.imgMode==='object') ? Object.assign({}, data.imgMode) : {};
+      NORM_BACKUP=(data.normBackup && typeof data.normBackup==='object') ? Object.assign({}, data.normBackup) : {};
+      saveJsonKey('sandbox_img_mode', IMG_MODE); saveJsonKey('sandbox_norm_backup', NORM_BACKUP);
+      try{
+        if(data.builderCfg && typeof data.builderCfg==='object'){
+          localStorage.setItem('sandbox_builder_cfg', JSON.stringify(data.builderCfg));
+          if(data.builderCfg.pbDevice && PB_DEVICE_DEFAULTS[data.builderCfg.pbDevice]) pbDevice=data.builderCfg.pbDevice;
+          if(data.builderCfg.pbDeviceTexts && typeof data.builderCfg.pbDeviceTexts==='object') pbDeviceTexts=data.builderCfg.pbDeviceTexts;
+          if(typeof data.builderCfg.pbStyleKey==='string') pbStyleKey=data.builderCfg.pbStyleKey;
+          if(typeof data.builderCfg.pbFrame==='string') pbFrame=data.builderCfg.pbFrame;
+        } else { localStorage.removeItem('sandbox_builder_cfg'); }
+      }catch(err){}
+      // выделение, фильтр выбранных и выбранный шаблон относились к прежнему состоянию — сбрасываем
+      onlySelFilter=false; filterSet=null; filterSavedWork=null;
+      checked=new Set(); selectedId=null;
+      store.save(); store.saveStyles(); store.saveBatches(); store.saveHotkeys(); store.savePFolders(); store.savePrompts();
+      s2SaveConv(); saveImgAssign();
+      try{ renderPrompts(); }catch(err){}
       renderBulkBar(); renderLib();
-      toast('Загружено из архива: '+merged+' шаблонов (+ стили, прогоны, промты, настройки)');
+      if(stageHead) stageHead.style.display='none';
+      if(preview) preview.innerHTML='<div class="stage-empty"><b>Архив восстановлен</b>Выбери шаблон слева.</div>';
+      renderInspectorEmpty();
+      if(window.SB_Gallery && SB_Gallery.mode==='grid') SB_Gallery.rebuild(true);
+      toast(`Архив восстановлен: шаблонов ${incomingN}`+(absent.length?` · сброшено: ${absent.join(', ')}`:''));
     }catch(err){ toast('Не удалось прочитать архив'); }
     e.target.value='';
   };
@@ -3954,7 +4109,7 @@ document.getElementById('bulkDelete').onclick=bulkDelete;
 document.getElementById('bulkClear').onclick=()=>{ checked.clear(); anchorId=null; paintSelection(); };
 // Этап 6: снять выделение — клик по пустому в rail ИЛИ по тёмному полю центра
 function clearSelectionEmpty(){
-  if(!checked.size || onlySelFilter) return;
+  if(!checked.size) return;
   checked.clear(); anchorId=null;
   paintSelection();
 }
@@ -3974,7 +4129,7 @@ document.getElementById('stage').addEventListener('click',e=>{
   clearSelectionEmpty();
 });
 document.getElementById('btnSelAll').onclick=()=>{
-  const all=Object.keys(LIB);
+  const all=onlySelFilter ? Object.keys(LIB).filter(id=>tplPassesFilters(LIB[id])) : Object.keys(LIB);
   if(checked.size===all.length){ checked.clear(); } else { checked=new Set(all); }
   renderLib();
 };
@@ -4691,5 +4846,7 @@ document.getElementById('pbCopy').onclick=()=>{
 <script src="recompose-core.js"></script>
 <script src="recompose-sandbox.js"></script>
 <script src="motion-converter.js"></script>
+<script src="library-audit.js"></script>
+<script src="library-repair.js"></script>
 </body>
 </html>

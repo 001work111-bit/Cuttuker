@@ -6,15 +6,12 @@
    - не пересчитывает layout и не делает новый frame;
    - берёт ТОЛЬКО выделенные шаблоны из Sandbox;
    - добавляет технический Motion Studio / AE contract;
-   - сохраняет результат как один самозагружающийся librarymotion.js (автозагрузка PMS).
+   - единый экспорт монтажной библиотеки: один librarymotion.js для PMS
+     (buildUnifiedLibraryJs): Recompose-метаданные + контракт Motion/AE,
+     без отдельного экспорта Motion Studio и без блока формата (aspect — автоматически).
    ============================================================ */
 (function(){
   'use strict';
-
-  const TARGETS = {
-    '16:9': { width:1920, height:1080 },
-    '9:16': { width:1080, height:1920 }
-  };
 
   function getSelectedTemplates(){
     // Важно: LIB и checked объявлены в основном Sandbox как top-level let.
@@ -102,27 +99,71 @@
     return [...headNodes, ...bodyNodes].map(n => n.nodeType === 1 ? n.outerHTML : n.textContent).join('');
   }
 
-  function detectAspect(source, html, forcedAspect){
-    if(forcedAspect === '16:9' || forcedAspect === '9:16') return forcedAspect;
+  /* ---- Соотношение сторон: реестр SB_FORMATS (расширяемый), без «горизонталь/вертикаль» ---- */
+  const ASPECT_TOL = 0.01; // допуск сравнения пропорции (1%)
 
-    const a = String(source.aspect || '').trim();
-    if(a === '16:9' || a === '9:16') return a;
+  function formatList(){
+    return (window.SB_FORMATS || []).filter(f => f && f.id && f.ratio && f.ratio.w > 0 && f.ratio.h > 0);
+  }
+  function formatById(id){
+    if(!id) return null;
+    return formatList().find(f => f.id === String(id)) || null;
+  }
+  // Формат, пропорция которого совпадает с w:h в пределах допуска. Ближайший формат не подставляется.
+  function formatForSize(w, h){
+    w = Number(w); h = Number(h);
+    if(!(w > 0 && h > 0)) return null;
+    const r = w / h;
+    let best = null, bestErr = Infinity;
+    formatList().forEach(f => {
+      const fr = f.ratio.w / f.ratio.h;
+      const err = Math.abs(fr - r) / fr;
+      if(err < bestErr){ bestErr = err; best = f; }
+    });
+    return (best && bestErr <= ASPECT_TOL) ? best : null;
+  }
+  function validCanvas(c){
+    return !!(c && Number(c.width) > 0 && Number(c.height) > 0);
+  }
 
-    const c = source.canvas;
-    if(c && Number(c.width) > 0 && Number(c.height) > 0){
-      return Number(c.height) > Number(c.width) ? '9:16' : '16:9';
+  // Определение формата: явный aspect → canvas → aspect-ratio корня. Иначе null (не угадываем).
+  function resolveAspect(source, html){
+    const warnings = [];
+    const explicit = formatById(String(source.aspect || '').trim());
+    const byCanvas = validCanvas(source.canvas) ? formatForSize(source.canvas.width, source.canvas.height) : null;
+    if(explicit){
+      if(validCanvas(source.canvas) && !byCanvas)
+        warnings.push(`aspect ${explicit.id}, но canvas ${source.canvas.width}×${source.canvas.height} не соответствует формату — canvas сохранён без изменений`);
+      else if(byCanvas && byCanvas.id !== explicit.id)
+        warnings.push(`aspect ${explicit.id} не совпадает с canvas (${byCanvas.id}) — приоритет у явного aspect`);
+      return { format: explicit, warnings };
     }
-
+    if(byCanvas) return { format: byCanvas, warnings };
     const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
     const root = doc.body.firstElementChild;
     const style = root ? (root.getAttribute('style') || '') : '';
     const m = style.match(/(?:^|;)\s*aspect-ratio\s*:\s*([0-9.]+)\s*\/\s*([0-9.]+)\s*;?/i);
     if(m){
-      const w = Number(m[1]), h = Number(m[2]);
-      if(w > 0 && h > 0) return h > w ? '9:16' : '16:9';
+      const byRoot = formatForSize(Number(m[1]), Number(m[2]));
+      if(byRoot) return { format: byRoot, warnings };
     }
+    const hint = source.aspect ? `aspect «${source.aspect}» не входит в реестр форматов` : 'aspect и canvas не заданы';
+    warnings.push(`формат не определён (${hint}); соотношение сторон не подставлено`);
+    return { format: null, warnings };
+  }
 
-    return '16:9';
+  // Совместимые поля исходного motion: всё, кроме полей, которые пересчитывает конвертер.
+  const MOTION_RECALC = ['contract','aspect','canvas','entities','animation'];
+  function compatMotion(m, warnings){
+    const out = {};
+    if(!m || typeof m !== 'object' || Array.isArray(m)) return out;
+    Object.keys(m).forEach(k=>{
+      if(MOTION_RECALC.indexOf(k) >= 0) return;
+      out[k] = JSON.parse(JSON.stringify(m[k]));
+    });
+    if(m.contract && m.contract !== 'motion-studio-template-v1' && warnings)
+      warnings.push(`motion.contract «${m.contract}» заменён на motion-studio-template-v1`);
+    return out;
   }
 
   function convertTemplate(source, forcedAspect){
@@ -134,15 +175,23 @@
     const entities = collectEntities(source, originalHtml);
     const html = normalizeMotionHtml(originalHtml, entities);
 
-    const aspect = detectAspect(source, originalHtml, forcedAspect);
-    const target = TARGETS[aspect];
+    // forcedAspect сохранён для совместимости вызовов; единый экспорт вызывает без него
+    const resolved = forcedAspect && formatById(forcedAspect)
+      ? { format: formatById(forcedAspect), warnings: [] }
+      : resolveAspect(source, originalHtml);
+    const fmt = resolved.format;
+    const aspect = fmt ? fmt.id : null;
+    // canvas: исходный (если корректный) сохраняется; иначе — эталон формата; без формата — null
+    const canvas = validCanvas(source.canvas)
+      ? { width:Number(source.canvas.width), height:Number(source.canvas.height) }
+      : (fmt && fmt.contractCanvas ? { width:fmt.contractCanvas.width, height:fmt.contractCanvas.height } : null);
 
     const kind = (
       String(source.kind || '').toLowerCase() === 'auto' ||
       /data-sb-repeat\s*=/.test(html)
     ) ? 'auto' : 'static';
 
-    return {
+    const conv = {
       tpl: String(source.tpl || ''),
       family: String(source.family || source.tpl || ''),
       group: String(source.group || ''),
@@ -159,25 +208,30 @@
       ) ? source.styleSystem : 'default',
 
       aspect,
-      canvas: { width:target.width, height:target.height },
+      canvas,
       entities,
 
-      motion: {
+      // motion: совместимые существующие поля source.motion сохраняются; пересчитываются только
+      // contract/aspect/canvas/entities (их значения определяет конвертер)
+      motion: Object.assign(compatMotion(source.motion, resolved.warnings), {
         contract: 'motion-studio-template-v1',
         aspect,
-        canvas: { width:target.width, height:target.height },
+        canvas,
         entities: entities.map(e=>({
           type:e.type,
           slot:e.slot,
           role:e.role
         })),
-        animation: { type:'none' }
-      },
+        animation: (source.motion && source.motion.animation && typeof source.motion.animation==='object')
+          ? JSON.parse(JSON.stringify(source.motion.animation)) : { type:'none' }
+      }),
 
-      // Исходный HTML после чисто технической маркировки.
-      // Геометрия/композиция здесь не переписывается.
+      // Исходный HTML после чисто технической маркировки. Геометрия не переписывается.
       html
     };
+    // служебное поле (не попадает в файл): предупреждения определения формата
+    Object.defineProperty(conv, '_warnings', { value: resolved.warnings, enumerable: false });
+    return conv;
   }
 
   function tplHash(t){
@@ -185,60 +239,151 @@
     return String(t.tpl || '') + '::' + norm;
   }
 
-  function buildMotionLibraryJs(templates){
-    const seen = new Set();
-    const uniq = [];
+  const PLACEHOLDER = { icon:'▧', kind:'static' };
+  // group не входит: категории дубликатов объединяются в groups (см. mergeRecord)
+  const SCALAR_KEYS = ['family','label','code','icon','desc','kind'];
 
-    templates.forEach(t=>{
-      const h = tplHash(t);
-      if(seen.has(h)) return;
-      seen.add(h);
-      uniq.push(t);
+  function isEmpty(v){ return v === undefined || v === null || v === ''; }
+
+  // Принадлежность шаблона к стилям: styleSystem (совместимость) + styleSystems (список).
+  // Первый элемент — основной стиль (он же пишется в styleSystem).
+  function membershipOf(src){
+    const out = [];
+    const add = k => {
+      const v = (typeof STYLES !== 'undefined' && STYLES[k]) ? k : 'default';
+      if(out.indexOf(v) < 0) out.push(v);
+    };
+    if(src.styleSystem) add(String(src.styleSystem).trim());
+    if(Array.isArray(src.styleSystems)) src.styleSystems.forEach(k=>{ if(k) add(String(k).trim()); });
+    if(!out.length) out.push('default');
+    return out;
+  }
+
+  function buildRecord(src){
+    const conv = convertTemplate(src, null);
+    if(!conv) return null;
+    return {
+      conv,
+      rc: (window.RC_pickMeta && window.RC_pickMeta(src)) || {},
+      styles: membershipOf(src),
+      groups: src.group ? [String(src.group)] : [],
+      favorite: !!src.favorite,
+      warnings: conv._warnings.map(w => `${conv.tpl || src.label || '?'}: ${w}`),
+      key: tplHash(src) + '::' + conv.aspect
+    };
+  }
+
+  // Слияние точного дубликата в уже принятую запись. Непустые поля первого не затираются:
+  // при расхождении остаётся значение первого, расхождение попадает в предупреждения.
+  function mergeRecord(p, d, warnings){
+    const name = p.conv.tpl || p.conv.label || '?';
+    const pc = p.conv, dc = d.conv;
+    SCALAR_KEYS.forEach(k=>{
+      const a = pc[k], b = dc[k];
+      const aEmpty = isEmpty(a) || a === PLACEHOLDER[k];
+      const bEmpty = isEmpty(b) || b === PLACEHOLDER[k];
+      if(aEmpty){ if(!bEmpty) pc[k] = b; return; }
+      if(!bEmpty && a !== b) warnings.push(`${name}: поле «${k}» отличается у дубликата — сохранено значение первого (${JSON.stringify(a)}).`);
+    });
+    Object.keys(d.rc).forEach(k=>{
+      if(p.rc[k] === undefined) p.rc[k] = d.rc[k];
+      else if(JSON.stringify(p.rc[k]) !== JSON.stringify(d.rc[k]))
+        warnings.push(`${name}: метаданные Recompose «${k}» отличаются у дубликата — сохранено значение первого.`);
+    });
+    const byslot = new Map(pc.entities.map(e=>[e.slot, e]));
+    dc.entities.forEach(e=>{
+      const have = byslot.get(e.slot);
+      if(!have){ pc.entities.push(e); byslot.set(e.slot, e); }
+      else if(have.type !== e.type) warnings.push(`${name}: слот «${e.slot}» имеет разный тип у дубликата — сохранён первый.`);
+    });
+    pc.motion.entities = pc.entities.map(e=>({ type:e.type, slot:e.slot, role:e.role }));
+    d.styles.forEach(k=>{ if(p.styles.indexOf(k) < 0) p.styles.push(k); });
+    d.groups.forEach(g=>{ if(p.groups.indexOf(g) < 0) p.groups.push(g); });
+    p.favorite = p.favorite || d.favorite;
+    if(d.conv.single) pc.single = true;
+  }
+
+  function emitEntry(r){
+    const c = r.conv;
+    const J = v => JSON.stringify(v);
+    const rcLines = Object.keys(r.rc).map(k=>`    ${k}:${J(r.rc[k])},\n`).join('');
+    return `  {
+    tpl:${J(c.tpl)},
+    family:${J(c.family)},
+    group:${J(c.group)},
+    groups:${J(r.groups)},
+    label:${J(c.label)},
+    code:${J(c.code)},
+    icon:${J(c.icon || '▧')},
+    kind:${J(c.kind || 'static')},
+    ${c.single ? 'single:true,' : ''}
+    desc:${J(c.desc || '')},
+    styleSystem:${J(r.styles[0])},
+    styleSystems:${J(r.styles)},
+    favorite:${r.favorite},
+    aspect:${J(c.aspect)},
+    canvas:${J(c.canvas)},
+    entities:${J(c.entities)},
+    motion:${J(c.motion)},
+${rcLines}    build:i=>${J(c.html || '')}
+  }`;
+  }
+
+  /* Единый экспорт librarymotion.js.
+     Вход: массив шаблонов Sandbox (LIB). Выход: { text, count, input, merged, warnings }.
+     Точные дубликаты (tpl + нормализованный HTML + aspect) дают один физический шаблон;
+     их стили и группы объединяются. Исходные данные Sandbox не меняются. */
+  function buildUnifiedLibraryJs(sources){
+    const warnings = [];
+    const map = new Map();          // ключ — tpl (уникальный ID шаблона)
+    const order = [];
+    let input = 0, merged = 0;
+
+    (sources || []).forEach(src=>{
+      const rec = buildRecord(src);
+      if(!rec){
+        warnings.push(`${(src && (src.tpl || src.label)) || '?'}: пустой HTML — пропущен.`);
+        return;
+      }
+      input++;
+      const name = rec.conv.tpl || rec.conv.label || '?';
+      const prev = map.get(rec.conv.tpl);
+      if(prev){
+        // точный дубликат (тот же HTML и aspect): объединяем, но только при совпадении холста
+        if(prev.key === rec.key){
+          const pc = JSON.stringify(prev.conv.canvas), rc = JSON.stringify(rec.conv.canvas);
+          if(pc !== rc){
+            warnings.push(`${name}: дубликат с другим canvas (${pc} и ${rc}) НЕ объединён — второй экземпляр пропущен.`);
+            return;
+          }
+          mergeRecord(prev, rec, warnings); merged++; return;
+        }
+        warnings.push(`${name}: несколько разных версий одного tpl (HTML или aspect различаются) — сохранена первая, остальные пропущены.`);
+        return;
+      }
+      rec.warnings.forEach(w=>warnings.push(w));
+      map.set(rec.conv.tpl, rec);
+      order.push(rec);
     });
 
     const styleReg = {};
     if(typeof STYLES !== 'undefined'){
       Object.keys(STYLES).forEach(k=>{
-        styleReg[k] = {
-          name:STYLES[k].name || k,
-          color:STYLES[k].color || ''
-        };
+        styleReg[k] = { name:STYLES[k].name || k, color:STYLES[k].color || '' };
       });
     }
 
-    const body = uniq.map(t=>{
-      // JSON.stringify для HTML безопаснее template literal:
-      // кавычки, backticks и ${} внутри HTML не требуют ручного экранирования.
-      const htmlLiteral = JSON.stringify(t.html || '');
-      const fav = !!t.favorite;
+    const body = order.map(emitEntry).join(',\n\n');
 
-      return `  {
-    tpl:${JSON.stringify(t.tpl)},
-    family:${JSON.stringify(t.family)},
-    group:${JSON.stringify(t.group)},
-    label:${JSON.stringify(t.label)},
-    code:${JSON.stringify(t.code)},
-    icon:${JSON.stringify(t.icon || '▧')},
-    kind:${JSON.stringify(t.kind || 'static')},
-    ${t.single ? 'single:true,' : ''}
-    desc:${JSON.stringify(t.desc || '')},
-    styleSystem:${JSON.stringify(t.styleSystem || 'default')},
-    favorite:${fav},
-    aspect:${JSON.stringify(t.aspect)},
-    canvas:${JSON.stringify(t.canvas)},
-    entities:${JSON.stringify(t.entities)},
-    motion:${JSON.stringify(t.motion)},
-    build:i=>${htmlLiteral}
-  }`;
-    }).join(',\n\n');
-
-    return `/* ============================================================
-   librarymotion.js — Motion Studio library
-   Сгенерировано Sandbox.
-   Шаблонов: ${uniq.length}
+    const text = `/* ============================================================
+   librarymotion.js — единый экспорт монтажной библиотеки (PMS).
+   Сгенерировано Sandbox. Шаблонов: ${order.length}
+   Несёт: структуру и HTML, Recompose-метаданные, motion/AE-контракт
+   (motion-studio-template-v1), entities по слотам, принадлежность к стилям
+   (styleSystem + styleSystems) и группам (group + groups).
    ============================================================ */
 (function(){
-  const STYLE_SYSTEMS=${JSON.stringify(styleReg,null,2)};
+  const STYLE_SYSTEMS=${JSON.stringify(styleReg, null, 2)};
   const LIBRARY=[
 
 ${body}
@@ -248,10 +393,7 @@ ${body}
   if(window.SB_registerStyleSystems){
     window.SB_registerStyleSystems(STYLE_SYSTEMS);
   }else{
-    window.SB_PENDING_STYLE_SYSTEMS=Object.assign(
-      window.SB_PENDING_STYLE_SYSTEMS||{},
-      STYLE_SYSTEMS
-    );
+    window.SB_PENDING_STYLE_SYSTEMS=Object.assign(window.SB_PENDING_STYLE_SYSTEMS||{}, STYLE_SYSTEMS);
   }
 
   if(window.SB_registerTemplates){
@@ -261,123 +403,7 @@ ${body}
   }
 })();
 `;
-  }
-
-  function downloadJs(filename, text){
-    const blob = new Blob([text], {type:'text/javascript;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 0);
-  }
-
-  function openDialog(){
-    const selected = getSelectedTemplates();
-
-    if(!selected.length){
-      if(typeof toast === 'function') toast('Сначала выдели шаблоны для Motion Studio');
-      return;
-    }
-
-    const old = document.getElementById('motionConvModal');
-    if(old) old.remove();
-
-    const wrap = document.createElement('div');
-    wrap.id = 'motionConvModal';
-    wrap.style.cssText =
-      'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.68);' +
-      'display:flex;align-items:center;justify-content:center;padding:24px;';
-
-    wrap.innerHTML = `
-      <div style="width:min(560px,100%);background:#171a20;color:#f4f6f8;border:1px solid #2c323c;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.45);overflow:hidden;font-family:inherit">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #2b3038;font-weight:700">
-          <span>Motion Studio — экспорт</span>
-          <button id="motionConvClose" style="border:0;background:#242933;color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer">×</button>
-        </div>
-        <div style="padding:20px">
-          <div style="font-size:13px;color:#9da5b1;margin-bottom:12px">
-            Выделено шаблонов:
-            <b style="color:#fff">${selected.length}</b>
-          </div>
-
-          <div style="font-size:13px;color:#9da5b1;margin-bottom:7px">
-            Aspect для Motion metadata
-          </div>
-
-          <select id="motionConvAspect"
-            style="width:100%;background:#101319;color:#fff;border:1px solid #343b46;border-radius:8px;padding:11px 12px;font:inherit">
-            <option value="auto">Как у шаблона / определить автоматически</option>
-            <option value="16:9">16:9</option>
-            <option value="9:16">9:16</option>
-          </select>
-
-          <div style="font-size:12px;color:#7f8793;line-height:1.5;margin-top:12px">
-            На этом этапе меняется только экспортный контракт.
-            Исходный HTML и геометрия шаблона не пересчитываются и не перерисовываются.
-          </div>
-
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
-            <button id="motionConvCancel" class="tb-btn">Отмена</button>
-            <button id="motionConvRun" class="tb-btn accent">⬇ Экспорт librarymotion.js</button>
-          </div>
-        </div>
-      </div>`;
-
-    document.body.appendChild(wrap);
-
-    const close = ()=>wrap.remove();
-    wrap.querySelector('#motionConvClose').onclick = close;
-    wrap.querySelector('#motionConvCancel').onclick = close;
-    wrap.addEventListener('click', e=>{
-      if(e.target === wrap) close();
-    });
-
-    wrap.querySelector('#motionConvRun').onclick = ()=>{
-      const choice = wrap.querySelector('#motionConvAspect').value;
-      const forcedAspect = choice === 'auto' ? null : choice;
-
-      // Берём выбор заново в момент экспорта — на случай, если пользователь
-      // изменил выделение до нажатия кнопки.
-      const source = getSelectedTemplates();
-      if(!source.length){
-        if(typeof toast === 'function') toast('Нет выделенных шаблонов');
-        close();
-        return;
-      }
-
-      const converted = source
-        .map(t=>convertTemplate(t, forcedAspect))
-        .filter(Boolean);
-
-      if(!converted.length){
-        if(typeof toast === 'function') toast('Нет шаблонов для экспорта');
-        close();
-        return;
-      }
-
-      downloadJs('librarymotion.js', buildMotionLibraryJs(converted));
-
-      if(typeof toast === 'function'){
-        toast('Motion Studio librarymotion.js: '+converted.length+' шаблон(ов)');
-      }
-      close();
-    };
-  }
-
-  function init(){
-    const btn = document.getElementById('btnExportMotion');
-    if(!btn) return;
-    btn.onclick = openDialog;
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', init);
-  }else{
-    init();
+    return { text, count:order.length, input, merged, warnings };
   }
 
   window.SB_motionExporter = {
@@ -385,7 +411,7 @@ ${body}
     collectEntities,
     normalizeMotionHtml,
     convertTemplate,
-    buildMotionLibraryJs,
-    openDialog
+    membershipOf,
+    buildUnifiedLibraryJs
   };
 })();
