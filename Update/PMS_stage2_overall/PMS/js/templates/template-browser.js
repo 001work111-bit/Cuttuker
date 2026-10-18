@@ -245,11 +245,16 @@ function normalizeDropdownOption(opt){
   return{value:String(opt),label:String(opt),desc:""};
 }
 function setMultiFilterValues(arr,values){arr.length=0;values.forEach(function(v){arr.push(v)})}
+// Открытое мультименю переживает перерисовку галереи: выбор пункта не закрывает меню.
+var mddOpenId=null;
 function renderTemplateDropdown(hostId,label,allOptions,selected,onToggle,emptyLabel,onBulk){
   var host=$(hostId);if(!host)return;
   var options=allOptions.map(normalizeDropdownOption),labelMap={};
   options.forEach(function(opt){labelMap[opt.value]=opt.label});
   var wrap=document.createElement("div");wrap.className="mdd";wrap.id=hostId;
+  if(mddOpenId===hostId)wrap.classList.add("open");
+  // закрыть, когда указатель покинул и кнопку, и меню (не отдельный пункт)
+  wrap.addEventListener("mouseleave",function(){wrap.classList.remove("open");if(mddOpenId===hostId)mddOpenId=null});
   var btn=document.createElement("button");btn.type="button";btn.className="btn mddBtn";
   btn.innerHTML='<span class="mddBtnText"><span class="mddBtnLabel">'+esc(label)+'</span><span class="mddBtnValue">'+esc(templateSelectionLabel(selected,emptyLabel||"Все",labelMap))+'</span></span><span class="mddBtnCaret">▾</span>';
   var menu=document.createElement("div");menu.className="mddMenu";
@@ -269,7 +274,7 @@ function renderTemplateDropdown(hostId,label,allOptions,selected,onToggle,emptyL
     var text=document.createElement("span");text.className="mddItemText";text.innerHTML='<span>'+esc(opt.label)+'</span>'+(opt.desc?'<small>'+esc(opt.desc)+'</small>':'');
     row.appendChild(input);row.appendChild(text);menu.appendChild(row);
   });
-  btn.onclick=function(e){e.stopPropagation();document.querySelectorAll(".mdd.open").forEach(function(x){if(x!==wrap)x.classList.remove("open")});wrap.classList.toggle("open")};
+  btn.onclick=function(e){e.stopPropagation();document.querySelectorAll(".mdd.open").forEach(function(x){if(x!==wrap)x.classList.remove("open")});wrap.classList.toggle("open");mddOpenId=wrap.classList.contains("open")?hostId:null};
   wrap.appendChild(btn);wrap.appendChild(menu);
   host.replaceWith(wrap);
 }
@@ -374,6 +379,9 @@ function selectTemplateCard(id,opts){
   }
   state.activeTemplateId=id;
   state.inspTab="template";
+  // статусы адаптации готовятся сразу при выборе (кэш модуля), инспектор открывается уже с расчётом
+  var pt=findTemplate(id);
+  if(pt&&window.PMS_ADAPT&&window.PMS_ADAPT.prefetch&&typeof libraryAdaptSource==="function"){var ps=libraryAdaptSource(pt);PMS_ADAPT.prefetch(ps,pt.format||"16:9","library",ps.format)}
   openTemplateInspectorForSelection();
 }
 function renderTemplateGrid(){
@@ -405,6 +413,17 @@ function renderTemplateGrid(){
       var ids=state.selectedTemplateIds.indexOf(t.id)>=0?state.selectedTemplateIds.slice():[t.id];
       e.dataTransfer.setData('text/x-templates',JSON.stringify(ids));
       e.dataTransfer.setData('text/plain',ids.join(','));
+      // компактная миниатюра: рамка, подпись и число при групповом перетаскивании
+      var gh=document.createElement('div');
+      gh.style.cssText='position:fixed;left:-1000px;top:-1000px;width:132px;padding:6px;box-sizing:border-box;border:1px solid #fff;border-radius:6px;background:#15151c;color:#fff;font:600 11px/1.3 sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:none';
+      var fr=document.createElement('div');
+      fr.style.cssText='width:100%;height:56px;border:1px solid rgba(255,255,255,.5);border-radius:3px;background:#2a2a36;margin-bottom:4px';
+      var lb=document.createElement('div');
+      lb.style.cssText='white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      lb.textContent=(t.label||t.name||t.tpl||t.id)+(ids.length>1?' +'+(ids.length-1):'');
+      gh.appendChild(fr);gh.appendChild(lb);document.body.appendChild(gh);
+      try{e.dataTransfer.setDragImage(gh,66,30)}catch(err){}
+      setTimeout(function(){gh.remove()},0);
     });
     var cp=pmsCardPreview&&pmsCardPreview.id===t.id?pmsCardPreview:null;
     if(cp&&cardPreviewActive(t.id)){if(cp.pending)tile.classList.add("adapting");else if(cp.res){paintCardStage(tile,t,cp.res)}}
@@ -425,14 +444,32 @@ function insertTemplateAfterContext(templateId){
   return insertTemplateBlocks([templateId],project.blocks.length,"main");
 }
 function insertTemplateEnd(templateId){return insertTemplateBlocks([templateId],project.blocks.length,"main")}
+function explicitBlockContext(){
+  var b=primaryBlock();if(b)return{block:b,track:"main"};
+  b=primaryOverlay();if(b)return{block:b,track:"overlay"};
+  return null;
+}
+var tplHintTimer=null;
+function showTplHint(text){
+  var el=document.getElementById("tplHint");if(!el)return;
+  if(!el.dataset.def)el.dataset.def=el.textContent;
+  el.textContent=text;clearTimeout(tplHintTimer);
+  tplHintTimer=setTimeout(function(){el.textContent=el.dataset.def},2500);
+}
 function templateCardGesture(t,e){
+  // Alt — в конец; Shift — после выбранного блока; Ctrl — заменить выбранный блок. Без модификатора — выделение.
   var wantsReplace=e.ctrlKey&&!e.shiftKey&&!e.altKey;
-  var wantsInsertEnd=e.altKey&&!e.ctrlKey;
-  var wantsInsertAfter=e.ctrlKey&&e.shiftKey;
+  var wantsInsertEnd=e.altKey&&!e.ctrlKey&&!e.shiftKey;
+  var wantsInsertAfter=e.shiftKey&&!e.ctrlKey&&!e.altKey;
   if(!wantsReplace&&!wantsInsertEnd&&!wantsInsertAfter)return false;
-  var eb=editingBlock();
-  if(wantsReplace&&!eb)return false;
+  // только явно выбранный блок: блок под playhead здесь не подменяет выбор (без скрытых операций)
+  var eb=explicitBlockContext();
+  if(wantsReplace&&!eb){showTplHint("Выберите блок на таймлайне, чтобы заменить его");return false}
+  // Shift без выбранного блока не вставляет в случайное место: подсказка, выделение остаётся обычным
+  if(wantsInsertAfter&&!eb){showTplHint("Выберите блок на таймлайне, чтобы вставить после него");return false}
   e.preventDefault();
+  // та же проверка готовности адаптации, что и при drag-and-drop
+  if(!cardDropGate([t.id]))return true;
   pushHistory();
   state.activeTemplateId=t.id;state.selectedTemplateIds=[t.id];
   var ids=[];
@@ -444,6 +481,9 @@ function templateCardGesture(t,e){
   }else if(wantsInsertAfter) ids=insertTemplateAfterContext(t.id);
   else if(wantsInsertEnd) ids=insertTemplateEnd(t.id);
   if(ids.length){state.selectedBlockIds=[];state.selectedOverlayIds=[];if(findBlock(ids[0]))state.selectedBlockIds=ids.slice();else state.selectedOverlayIds=ids.slice()}
+  // адаптация применяется к вставленным/заменённым блокам тем же путём, что и при drop
+  applyCardAdaptToBlocks(wantsReplace?[eb.block.id]:ids);
+  commitHistory();
   renderUI(true);
   return true;
 }
@@ -595,7 +635,7 @@ function bindTemplateBrowser(){
   if($("tplStyleMgrAddGroup"))$("tplStyleMgrAddGroup").onclick=addGroupFromManager;
   if($("tplStyleMgrAddStyle"))$("tplStyleMgrAddStyle").onclick=addStyleFromManager;
   var sl=$("tplSizeSlider");if(sl){sl.value=templateCardWidth();sl.oninput=function(){state.templateCardWidth=+sl.value;applyTemplateCardWidth()}}
-  document.addEventListener("click",function(e){if(!e.target.closest||!e.target.closest(".mdd"))document.querySelectorAll(".mdd.open").forEach(function(x){x.classList.remove("open")});if(e.target.classList&&e.target.classList.contains("modal"))e.target.classList.remove("on")});
+  document.addEventListener("click",function(e){if(!e.target.closest||!e.target.closest(".mdd")){mddOpenId=null;document.querySelectorAll(".mdd.open").forEach(function(x){x.classList.remove("open")})}if(e.target.classList&&e.target.classList.contains("modal"))e.target.classList.remove("on")});
 }
 
 flushPendingTemplateLibrary();

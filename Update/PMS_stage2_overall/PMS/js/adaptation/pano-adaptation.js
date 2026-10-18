@@ -198,10 +198,51 @@
     return (pre || "XX") + "-?";
   }
 
+  // Кэш статусов капсул — на уровне модуля (общий для инспекторов). Ключ включает шаблон, HTML источника,
+  // формат источника, целевой формат, метод, приложение и сценарий: при изменении любого из них статус пересчитывается.
+  var statusCache = {};
+  function statusKey(src, m, format, scenario, sourceFormat) {
+    return [src ? (src.tpl || "") : "", sourceFormat, m, format, APP, scenario, src ? hash(String(src.html || "")) : ""].join("|");
+  }
+  // Подготовка статусов заранее (при выборе шаблона): методы считаются по очереди и попадают в кэш,
+  // поэтому инспектор открывается уже с готовыми цветами. Уже рассчитанные комбинации не пересчитываются.
+  var prefetchQueue = Promise.resolve();
+  function prefetchStatuses(src, format, scenario, sourceFormat) {
+    if (!src || !src.html || !ready()) return;
+    methods(format, scenario, sourceFormat).forEach(function (m) {
+      var key = statusKey(src, m.id, format, scenario, sourceFormat);
+      if (statusCache[key]) return;
+      prefetchQueue = prefetchQueue.then(function () {
+        if (statusCache[key]) return null;
+        return convert(src, m.id, format, function () { return false; }).then(function (res) {
+          if (!res || statusCache[key]) return;
+          if (res.status === "failed") statusCache[key] = { status: "failed", reason: (res.reasons && res.reasons[0]) || res.error || "" };
+          else if (!usable(res)) statusCache[key] = { status: "failed", reason: (res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны" };
+          else statusCache[key] = gradeUnknown({ status: res.status === "warning" ? "warning" : "ok", reason: (res.warnings && res.warnings[0]) || "" }, src);
+        });
+      }).catch(function () {});
+    });
+  }
+
   // методы для формата, совместимые с исходным форматом и сценарием
+  // Неизвестный источник (sourceFormat пустой): без подстановки 16:9 берём объединение методов,
+  // которые движок допускает хотя бы для одного известного формата источника. Совместимость с
+  // конкретным источником всё равно подтверждается фактическим расчётом (см. gradeUnknown).
   function methods(format, scenario, sourceFormat) {
     if (!ready()) return [];
-    return adapt().list(format, APP, sourceFormat || "16:9", scenario).map(function (m) {
+    var list;
+    if (sourceFormat) {
+      list = adapt().list(format, APP, sourceFormat, scenario);
+    } else {
+      var seen = {};
+      list = [];
+      formats().forEach(function (f) {
+        adapt().list(format, APP, f.id, scenario).forEach(function (m) {
+          if (!seen[m.id]) { seen[m.id] = true; list.push(m); }
+        });
+      });
+    }
+    return list.map(function (m) {
       return { id: m.id, name: m.name, description: m.description || "", version: m.version };
     });
   }
@@ -295,7 +336,7 @@
 
     function capKey(m) {
       var src = cfg.getSource();
-      return [src ? (src.tpl || "") : "", cfg.sourceFormat(), m, ctl.format, APP, cfg.scenario, src ? textHash(src.html) : ""].join("|");
+      return [src ? (src.tpl || "") : "", cfg.sourceFormat(), m, ctl.format, APP, cfg.scenario, src ? hash(String(src.html || "")) : ""].join("|");
     }
 
     // Капсулы: заливка = выбранный метод (синий), точка = статус рассчитанной комбинации;
@@ -304,7 +345,7 @@
     // Голубая заливка — только выбранный метод, она не заменяет статус. Выбор не меняет библиотеку.
     function methodStatus(id) {
       if (!id) return { status: "ok", reason: "" };
-      var st = ctl.cache[capKey(id)];
+      var st = statusCache[capKey(id)];
       if (st) return st;
       return null;
     }
@@ -328,7 +369,11 @@
       if (ctl.method && ids.indexOf(ctl.method) < 0) {
         items.push({ id: ctl.method, name: ctl.method, description: "Не совместим с форматом " + formatLabel(ctl.format), incompatible: true });
       }
-      capsBox.innerHTML = items.map(function (m) {
+      // пока не все статусы готовы — показываем «Расчёт статусов…», а не серые точки, которые потом меняются
+      var missing = list.filter(function (m) { return !statusCache[capKey(m.id)]; });
+      var pending = !!(missing.length && cfg.getSource && cfg.getSource());
+      // подписи методов видны сразу; точки статуса появляются все вместе, когда расчёт готов
+      capsBox.innerHTML = (pending ? '<span class="inspMeta">Расчёт статусов…</span>' : "") + items.map(function (m) {
         var sel = ctl.method === m.id;
         var st = m.incompatible ? { status: "failed", reason: "не совместим с выбранным форматом" } : methodStatus(m.id);
         var stKey = st ? st.status : "none";
@@ -337,7 +382,7 @@
         var tip = (m.name || "") + (m.id ? " · ID " + m.id : "") + (m.description ? "\n" + m.description : "") +
           "\n" + stLabel + (st && st.reason ? ": " + st.reason : "");
         return '<button type="button" class="adaptCap' + (sel ? " sel" : "") + '" data-cap="' + esc(m.id) + '" title="' + esc(tip) + '">' +
-          '<i class="adaptCapDot st-' + stKey + '"></i>' + esc(label) + "</button>";
+          (pending ? "" : '<i class="adaptCapDot st-' + stKey + '"></i>') + esc(label) + "</button>";
       }).join("");
       capsBox.querySelectorAll(".adaptCap").forEach(function (btn) {
         btn.onclick = function () { ctl.setMethod(btn.dataset.cap || ""); };
@@ -434,7 +479,7 @@
         ctl.pending = false;
         ctl.result = res;
         if (res.status === "failed") {
-          ctl.cache[capKey(ctl.method)] = { status: "failed", reason: (res.reasons && res.reasons[0]) || res.error || "" };
+          statusCache[capKey(ctl.method)] = { status: "failed", reason: (res.reasons && res.reasons[0]) || res.error || "" };
           renderCaps();
           renderPreview(null, src);
           setStatus("Не применимо: " + ((res.reasons && res.reasons[0]) || res.error || "ошибка движка"), "warn");
@@ -442,18 +487,20 @@
           return;
         }
         if (!usable(res)) {
-          ctl.cache[capKey(ctl.method)] = { status: "failed", reason: (res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны" };
+          statusCache[capKey(ctl.method)] = { status: "failed", reason: (res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны" };
           renderCaps();
           renderPreview(null, src);
           setStatus("Не применимо: " + ((res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны"), "warn");
           cfg.onResult && cfg.onResult(null, ctl);
           return;
         }
-        ctl.cache[capKey(ctl.method)] = { status: res.status === "warning" ? "warning" : "ok", reason: (res.warnings && res.warnings[0]) || "" };
+        statusCache[capKey(ctl.method)] = gradeUnknown({ status: res.status === "warning" ? "warning" : "ok", reason: (res.warnings && res.warnings[0]) || "" }, src);
         renderCaps();
         renderPreview(res, src);
-        var note = res.status === "warning" ? "Проверить: " + (res.warnings[0] || res.reasons[0] || "") : "Готово";
-        setStatus(statusText(res) + " — " + note, res.status === "warning" ? "warn" : "ok");
+        var unk = !!(src && src.formatUnknown);
+        var note = unk ? "Формат исходника не определён: проверьте результат"
+          : res.status === "warning" ? "Проверить: " + (res.warnings[0] || res.reasons[0] || "") : "Готово";
+        setStatus(statusText(res) + " — " + note, (unk || res.status === "warning") ? "warn" : "ok");
         cfg.onResult && cfg.onResult(res, ctl);
       });
     }
@@ -468,7 +515,7 @@
       var list = methods(ctl.format, cfg.scenario, cfg.sourceFormat());
       list.forEach(function (m) {
         var key = capKey(m.id);
-        if (ctl.cache[key] || ctl.probing[key]) return;
+        if (statusCache[key] || ctl.probing[key]) return;
         ctl.probing[key] = true;
         ctl.probeQueue = ctl.probeQueue.then(function () {
           if (!box.isConnected) { delete ctl.probing[key]; return null; }
@@ -480,7 +527,7 @@
           if (res.status === "failed") st = { status: "failed", reason: (res.reasons && res.reasons[0]) || res.error || "" };
           else if (!usable(res)) st = { status: "failed", reason: (res.reasons && res.reasons[0]) || "слоты медиа исходника потеряны" };
           else st = { status: res.status === "warning" ? "warning" : "ok", reason: (res.warnings && res.warnings[0]) || "" };
-          ctl.cache[key] = st;
+          statusCache[key] = gradeUnknown(st, src);
           renderCaps();
         }).catch(function () { delete ctl.probing[key]; });
       });
@@ -517,7 +564,7 @@
   function metaFor(res, src) {
     return {
       method: res.method, methodName: res.methodName, algo: res.algo,
-      format: res.format, sourceFormat: src.format || "16:9",
+      format: res.format, sourceFormat: src.format || "",
       sourceTpl: src.tpl || "", sourceLabel: src.label || "",
       sourceHtml: String(src.html || ""), sourceHash: res.sourceHash,
       resultTextHash: res.resultTextHash, status: res.status,
@@ -529,11 +576,48 @@
   // Нормализует HTML для записи в блок: без служебных id узлов (их выдаст Pano заново)
   function cleanHtml(html) { return stripNodeAttrs(html); }
 
+  // Формат исходника. Порядок: явные метаданные → надёжные размеры холста или пропорция корневого HTML
+  // → «неизвестен» (format: "", formatUnknown: true). Значение по умолчанию не подставляется.
+  function knownFormat(id) {
+    return formats().some(function (f) { return f.id === id; }) ? id : "";
+  }
+  // Формат по пропорции w:h — только если она совпадает с форматом реестра (допуск 2%)
+  function formatByRatio(w, h) {
+    w = +w; h = +h;
+    if (!(w > 0 && h > 0)) return "";
+    var best = "", bestD = Infinity;
+    formats().forEach(function (f) {
+      if (!(f.w > 0 && f.h > 0)) return;
+      var r = f.w / f.h, d = Math.abs(w / h - r) / r;
+      if (d < bestD) { bestD = d; best = f.id; }
+    });
+    return bestD <= 0.02 ? best : "";
+  }
   function origin(html, meta, fallbackFormat) {
-    if (meta && meta.adaptation && meta.adaptation.sourceHtml) {
-      return { html: meta.adaptation.sourceHtml, format: meta.adaptation.sourceFormat || "16:9", tpl: meta.adaptation.sourceTpl, label: meta.adaptation.sourceLabel };
+    var a = meta && meta.adaptation;
+    var htmlSrc = a && a.sourceHtml ? a.sourceHtml : html;
+    var tplInfo = a && a.sourceHtml ? { tpl: a.sourceTpl, label: a.sourceLabel } : {};
+    // 1. явные метаданные
+    var fmt = a && a.sourceHtml ? knownFormat(a.sourceFormat) : knownFormat(fallbackFormat);
+    if (!fmt && meta) fmt = knownFormat(meta.aspect);
+    // 2. надёжные размеры холста (явные поля шаблона) или пропорция корневого элемента HTML
+    if (!fmt && meta) {
+      var c = meta.canvas || {};
+      fmt = formatByRatio(meta.designW || c.w || c.width, meta.designH || c.h || c.height);
     }
-    return { html: html, format: fallbackFormat || "16:9" };
+    if (!fmt) {
+      var root = /^\s*<[^>]*\bstyle="[^"]*aspect-ratio:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i.exec(String(htmlSrc || ""));
+      if (root) fmt = formatByRatio(root[1], root[2]);
+    }
+    // 3. неизвестен — не угадываем
+    return { html: htmlSrc, format: fmt, formatUnknown: !fmt, tpl: tplInfo.tpl, label: tplInfo.label };
+  }
+  // Статус не из реестра: при неизвестном формате исходника зелёный не выставляется
+  function gradeUnknown(st, src) {
+    if (src && src.formatUnknown && st && st.status === "ok") {
+      return { status: "warning", reason: "формат исходника не определён: проверьте результат" };
+    }
+    return st;
   }
 
   // ---- предпросмотр блока (только состояние, не сохраняется) ----------------------
@@ -549,6 +633,7 @@
   function previewHtml(blockId) { var p = previewFor(blockId); return p ? p.html : null; }
 
   window.PMS_ADAPT = {
+    prefetch: prefetchStatuses,
     ready: ready,
     formats: formats, formatLabel: formatLabel, methods: methods,
     convert: convert, mount: mount, controlsHtml: controlsHtml,
